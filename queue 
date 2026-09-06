@@ -1,0 +1,682 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime
+
+
+# =========================
+# QUEUE DATA
+# =========================
+
+registrar_queue = []
+finance_queue = []
+
+registrar_number = 0
+finance_number = 0
+
+current_registrar = None
+current_finance = None
+
+
+# =========================
+# MAIN WINDOW
+# =========================
+
+root = tk.Tk()
+root.title("QueueEase - PHINMA University of Pangasinan")
+root.geometry("950x650")
+root.resizable(False, False)
+
+
+# =========================
+# FUNCTIONS
+# =========================
+
+def update_display():
+    """Update the queue display."""
+
+    if current_registrar:
+        registrar_now_label.config(
+            text=f"R-{current_registrar:03d}"
+        )
+    else:
+        registrar_now_label.config(
+            text="---"
+        )
+
+    if current_finance:
+        finance_now_label.config(
+            text=f"F-{current_finance:03d}"
+        )
+    else:
+        finance_now_label.config(
+            text="---"
+        )
+
+    update_waiting_list()
+
+
+def get_queue():
+    """Generate a queue number for the student."""
+
+    global registrar_number
+    global finance_number
+
+    name = name_entry.get().strip()
+    office = office_combo.get()
+    service = service_combo.get()
+
+    if not name:
+        messagebox.showwarning(
+            "Missing Information",
+            "Please enter your name."
+        )
+        return
+
+    if not office or not service:
+        messagebox.showwarning(
+            "Missing Information",
+            "Please select an office and service."
+        )
+        return
+
+    if office == "Registrar":
+
+        registrar_number += 1
+        number = registrar_number
+
+        registrar_queue.append({
+            "number": number,
+            "name": name,
+            "service": service,
+            "status": "Waiting"
+        })
+
+        queue_number = f"R-{number:03d}"
+
+    else:
+
+        finance_number += 1
+        number = finance_number
+
+        finance_queue.append({
+            "number": number,
+            "name": name,
+            "service": service,
+            "status": "Waiting"
+        })
+
+        queue_number = f"F-{number:03d}"
+
+    messagebox.showinfo(
+        "Queue Number",
+        f"Your queue number is:\n\n"
+        f"{queue_number}\n\n"
+        f"Office: {office}\n"
+        f"Service: {service}\n\n"
+        f"Please monitor the queue."
+    )
+
+    name_entry.delete(0, tk.END)
+
+    update_display()
+
+
+def call_next():
+    """Call the next waiting student."""
+
+    global current_registrar
+    global current_finance
+
+    office = staff_office_combo.get()
+
+    if office == "Registrar":
+
+        if not registrar_queue:
+            messagebox.showinfo(
+                "Queue",
+                "There are no students waiting in Registrar."
+            )
+            return
+
+        # Find first waiting student
+        for student in registrar_queue:
+
+            if student["status"] == "Waiting":
+
+                student["status"] = "Now Serving"
+                current_registrar = student["number"]
+
+                messagebox.showinfo(
+                    "Now Serving",
+                    f"Now serving:\n\n"
+                    f"R-{student['number']:03d}\n"
+                    f"{student['name']}"
+                )
+
+                update_display()
+                return
+
+        messagebox.showinfo(
+            "Queue",
+            "No waiting students in Registrar."
+        )
+
+    else:
+
+        if not finance_queue:
+            messagebox.showinfo(
+                "Queue",
+                "There are no students waiting in Finance."
+            )
+            return
+
+        for student in finance_queue:
+
+            if student["status"] == "Waiting":
+
+                student["status"] = "Now Serving"
+                current_finance = student["number"]
+
+                messagebox.showinfo(
+                    "Now Serving",
+                    f"Now serving:\n\n"
+                    f"F-{student['number']:03d}\n"
+                    f"{student['name']}"
+                )
+
+                update_display()
+                return
+
+        messagebox.showinfo(
+            "Queue",
+            "No waiting students in Finance."
+        )
+
+
+def complete_transaction():
+    """Mark current transaction as completed."""
+
+    global current_registrar
+    global current_finance
+
+    office = staff_office_combo.get()
+
+    if office == "Registrar":
+
+        if current_registrar is None:
+            messagebox.showwarning(
+                "No Transaction",
+                "There is no current Registrar transaction."
+            )
+            return
+
+        for student in registrar_queue:
+
+            if student["number"] == current_registrar:
+                student["status"] = "Completed"
+                break
+
+        current_registrar = None
+
+    else:
+
+        if current_finance is None:
+            messagebox.showwarning(
+                "No Transaction",
+                "There is no current Finance transaction."
+            )
+            return
+
+        for student in finance_queue:
+
+            if student["number"] == current_finance:
+                student["status"] = "Completed"
+                break
+
+        current_finance = None
+
+    update_display()
+
+
+def update_waiting_list():
+    """Update the waiting list."""
+
+    for item in waiting_table.get_children():
+        waiting_table.delete(item)
+
+    for student in registrar_queue:
+
+        waiting_table.insert(
+            "",
+            tk.END,
+            values=(
+                f"R-{student['number']:03d}",
+                student["name"],
+                "Registrar",
+                student["service"],
+                student["status"]
+            )
+        )
+
+    for student in finance_queue:
+
+        waiting_table.insert(
+            "",
+            tk.END,
+            values=(
+                f"F-{student['number']:03d}",
+                student["name"],
+                "Finance",
+                student["service"],
+                student["status"]
+            )
+        )
+
+
+def post_announcement():
+    """Post a general announcement."""
+
+    announcement = announcement_entry.get().strip()
+
+    if not announcement:
+        messagebox.showwarning(
+            "Announcement",
+            "Please enter an announcement."
+        )
+        return
+
+    announcement_label.config(
+        text=f"📢 {announcement}"
+    )
+
+    announcement_entry.delete(0, tk.END)
+
+
+def update_services(event=None):
+    """Change services depending on selected office."""
+
+    office = office_combo.get()
+
+    if office == "Registrar":
+
+        service_combo["values"] = [
+            "Request Documents",
+            "Enrollment Concern",
+            "Student Records",
+            "Other Concern"
+        ]
+
+    elif office == "Finance":
+
+        service_combo["values"] = [
+            "Payment",
+            "Billing Concern",
+            "Assessment Concern",
+            "Other Concern"
+        ]
+
+    service_combo.set("")
+
+
+# =========================
+# HEADER
+# =========================
+
+header = tk.Frame(
+    root,
+    bg="#1565C0",
+    height=80
+)
+
+header.pack(fill="x")
+header.pack_propagate(False)
+
+tk.Label(
+    header,
+    text="QueueEase",
+    font=("Arial", 25, "bold"),
+    bg="#1565C0",
+    fg="white"
+).pack(side="left", padx=30, pady=20)
+
+tk.Label(
+    header,
+    text="PHINMA University of Pangasinan",
+    font=("Arial", 12),
+    bg="#1565C0",
+    fg="white"
+).pack(side="left")
+
+
+# =========================
+# ANNOUNCEMENT
+# =========================
+
+announcement_label = tk.Label(
+    root,
+    text="📢 No announcements",
+    font=("Arial", 11, "bold"),
+    bg="#FFF3CD",
+    fg="#856404",
+    anchor="w",
+    padx=15
+)
+
+announcement_label.pack(
+    fill="x",
+    padx=20,
+    pady=10
+)
+
+
+# =========================
+# MAIN FRAME
+# =========================
+
+main_frame = tk.Frame(root)
+main_frame.pack(fill="both", expand=True, padx=20)
+
+
+# =========================
+# STUDENT PANEL
+# =========================
+
+student_frame = tk.LabelFrame(
+    main_frame,
+    text=" Student Queue ",
+    font=("Arial", 14, "bold"),
+    padx=20,
+    pady=15
+)
+
+student_frame.pack(
+    side="left",
+    fill="y",
+    padx=(0, 10)
+)
+
+tk.Label(
+    student_frame,
+    text="Student Name"
+).pack(anchor="w")
+
+name_entry = tk.Entry(
+    student_frame,
+    width=32,
+    font=("Arial", 11)
+)
+
+name_entry.pack(
+    pady=(5, 15)
+)
+
+
+tk.Label(
+    student_frame,
+    text="Choose Office"
+).pack(anchor="w")
+
+office_combo = ttk.Combobox(
+    student_frame,
+    values=["Registrar", "Finance"],
+    state="readonly",
+    width=29
+)
+
+office_combo.pack(
+    pady=(5, 15)
+)
+
+office_combo.bind(
+    "<<ComboboxSelected>>",
+    update_services
+)
+
+
+tk.Label(
+    student_frame,
+    text="Choose Service"
+).pack(anchor="w")
+
+service_combo = ttk.Combobox(
+    student_frame,
+    state="readonly",
+    width=29
+)
+
+service_combo.pack(
+    pady=(5, 20)
+)
+
+
+tk.Button(
+    student_frame,
+    text="GET QUEUE NUMBER",
+    command=get_queue,
+    bg="#1565C0",
+    fg="white",
+    font=("Arial", 11, "bold"),
+    width=28,
+    pady=8
+).pack()
+
+
+# =========================
+# CURRENT QUEUE
+# =========================
+
+current_frame = tk.LabelFrame(
+    main_frame,
+    text=" Now Serving ",
+    font=("Arial", 14, "bold"),
+    padx=20,
+    pady=15
+)
+
+current_frame.pack(
+    side="left",
+    fill="y",
+    padx=10
+)
+
+
+tk.Label(
+    current_frame,
+    text="REGISTRAR",
+    font=("Arial", 11, "bold")
+).pack(pady=(10, 5))
+
+registrar_now_label = tk.Label(
+    current_frame,
+    text="---",
+    font=("Arial", 30, "bold"),
+    fg="#1565C0"
+)
+
+registrar_now_label.pack(
+    pady=(0, 30)
+)
+
+
+tk.Label(
+    current_frame,
+    text="FINANCE",
+    font=("Arial", 11, "bold")
+).pack(pady=(10, 5))
+
+finance_now_label = tk.Label(
+    current_frame,
+    text="---",
+    font=("Arial", 30, "bold"),
+    fg="#1565C0"
+)
+
+finance_now_label.pack()
+
+
+# =========================
+# STAFF PANEL
+# =========================
+
+staff_frame = tk.LabelFrame(
+    main_frame,
+    text=" Staff Controls ",
+    font=("Arial", 14, "bold"),
+    padx=15,
+    pady=15
+)
+
+staff_frame.pack(
+    side="right",
+    fill="y",
+    padx=(10, 0)
+)
+
+tk.Label(
+    staff_frame,
+    text="Office"
+).pack(anchor="w")
+
+staff_office_combo = ttk.Combobox(
+    staff_frame,
+    values=["Registrar", "Finance"],
+    state="readonly",
+    width=22
+)
+
+staff_office_combo.pack(
+    pady=(5, 15)
+)
+
+staff_office_combo.set("Registrar")
+
+
+tk.Button(
+    staff_frame,
+    text="CALL NEXT",
+    command=call_next,
+    bg="#1565C0",
+    fg="white",
+    font=("Arial", 10, "bold"),
+    width=22,
+    pady=7
+).pack(pady=5)
+
+
+tk.Button(
+    staff_frame,
+    text="COMPLETE",
+    command=complete_transaction,
+    bg="#2E7D32",
+    fg="white",
+    font=("Arial", 10, "bold"),
+    width=22,
+    pady=7
+).pack(pady=5)
+
+
+tk.Label(
+    staff_frame,
+    text="Announcement"
+).pack(
+    anchor="w",
+    pady=(20, 5)
+)
+
+announcement_entry = tk.Entry(
+    staff_frame,
+    width=25
+)
+
+announcement_entry.pack(pady=5)
+
+
+tk.Button(
+    staff_frame,
+    text="POST ANNOUNCEMENT",
+    command=post_announcement,
+    bg="#F57C00",
+    fg="white",
+    font=("Arial", 9, "bold"),
+    width=22,
+    pady=7
+).pack(pady=5)
+
+
+# =========================
+# WAITING LIST
+# =========================
+
+list_frame = tk.LabelFrame(
+    root,
+    text=" Queue Records ",
+    font=("Arial", 13, "bold")
+)
+
+list_frame.pack(
+    fill="both",
+    expand=True,
+    padx=20,
+    pady=10
+)
+
+columns = (
+    "Queue",
+    "Student",
+    "Office",
+    "Service",
+    "Status"
+)
+
+waiting_table = ttk.Treeview(
+    list_frame,
+    columns=columns,
+    show="headings",
+    height=7
+)
+
+for column in columns:
+
+    waiting_table.heading(
+        column,
+        text=column
+    )
+
+waiting_table.column(
+    "Queue",
+    width=80
+)
+
+waiting_table.column(
+    "Student",
+    width=180
+)
+
+waiting_table.column(
+    "Office",
+    width=100
+)
+
+waiting_table.column(
+    "Service",
+    width=180
+)
+
+waiting_table.column(
+    "Status",
+    width=120
+)
+
+waiting_table.pack(
+    fill="both",
+    expand=True,
+    padx=10,
+    pady=10
+)
+
+
+# =========================
+# START PROGRAM
+# =========================
+
+root.mainloop()
