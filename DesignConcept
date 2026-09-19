@@ -1,0 +1,1144 @@
+import tkinter as tk
+
+window = tk.Tk()
+window.title("iHANDA Dagupan")
+window.geometry("900x650")
+window.minsize(700, 500)
+window.configure(bg="#F5F6FA")
+
+
+# =========================
+# COLORS
+# =========================
+
+BLUE = "#123B6D"
+RED = "#C62828"
+LIGHT_BLUE = "#EAF3FA"
+BACKGROUND = "#F5F6FA"
+DARK_GRAY = "#444444"
+WHITE = "white"
+
+
+# =========================
+# HEADER
+# =========================
+
+header = tk.Frame(
+    window,
+    bg=BLUE,
+    height=120
+)
+
+header.pack(fill="x")
+header.pack_propagate(False)
+
+
+tk.Label(
+    header,
+    text="iHANDA Dagupan",
+    font=("Arial", 30, "bold"),
+    bg=BLUE,
+    fg=WHITE
+).place(
+    x=40,
+    y=25
+)
+
+
+tk.Label(
+    header,
+    text="Disaster Preparedness System",
+    font=("Arial", 12),
+    bg=BLUE,
+    fg=WHITE
+).place(
+    x=43,
+    y=70
+)
+
+
+# =========================
+# MENU BUTTON
+# =========================
+
+menu_button = tk.Button(
+    header,
+    text="☰",
+    font=("Arial", 24),
+    bg=BLUE,
+    fg=WHITE,
+    relief="flat",
+    bd=0,
+    command=lambda: show_menu()
+)
+
+menu_button.place(
+    relx=0.95,
+    rely=0.5,
+    anchor="center"
+)
+
+
+# =========================
+# CONTENT
+# =========================
+
+content = tk.Frame(
+    window,
+    bg=BACKGROUND
+)
+
+content.pack(
+    fill="both",
+    expand=True
+)
+
+
+# =========================
+# FOOTER
+# =========================
+
+tk.Label(
+    window,
+    text="© iHANDA Dagupan 2026",
+    font=("Arial", 9),
+    bg=BLUE,
+    fg=WHITE
+).pack(
+    fill="x",
+    side="bottom",
+    pady=13
+)
+
+
+# =========================
+# MENU FRAME
+# =========================
+
+menu_frame = None
+
+
+# =========================
+# CLEAR
+# =========================
+
+def clear():
+
+    for item in content.winfo_children():
+        item.destroy()
+
+
+# =========================
+# CLOSE MENU
+# =========================
+
+def close_menu():
+
+    global menu_frame
+
+    if menu_frame is not None:
+        menu_frame.destroy()
+        menu_frame = None
+
+
+# =========================
+# HOME
+# =========================
+
+def show_home():
+
+    clear()
+
+    # =========================
+    # SCROLL AREA
+    # =========================
+
+    area = tk.Frame(
+        content,
+        bg=BACKGROUND
+    )
+
+    area.pack(
+        fill="both",
+        expand=True,
+        padx=45,
+        pady=20
+    )
+
+    canvas = tk.Canvas(
+        area,
+        bg=BACKGROUND,
+        highlightthickness=0
+    )
+
+    scrollbar = tk.Scrollbar(
+        area,
+        orient="vertical",
+        command=canvas.yview
+    )
+
+    home_box = tk.Frame(
+        canvas,
+        bg=BACKGROUND
+    )
+
+    canvas_window = canvas.create_window(
+        (0, 0),
+        window=home_box,
+        anchor="nw"
+    )
+
+    def update_home_scroll(event):
+
+        canvas.configure(
+            scrollregion=canvas.bbox("all")
+        )
+
+    home_box.bind(
+        "<Configure>",
+        update_home_scroll
+    )
+
+    def resize_home(event):
+
+        canvas.itemconfig(
+            canvas_window,
+            width=event.width
+        )
+
+    canvas.bind(
+        "<Configure>",
+        resize_home
+    )
+
+    canvas.configure(
+        yscrollcommand=scrollbar.set
+    )
+
+    canvas.pack(
+        side="left",
+        fill="both",
+        expand=True
+    )
+
+    scrollbar.pack(
+        side="right",
+        fill="y"
+    )
+
+
+    # =========================
+    # WELCOME
+    # =========================
+
+    tk.Label(
+        home_box,
+        text="Welcome to iHANDA Dagupan",
+        font=("Arial", 23, "bold"),
+        bg=BACKGROUND,
+        fg=BLUE
+    ).pack(
+        pady=(10, 15)
+    )
+
+
+    tk.Label(
+        home_box,
+        text="iHANDA Dagupan is a community-based disaster preparedness "
+             "system designed specifically for the residents of Dagupan City. "
+             "Due to frequent flooding and other natural hazards, "
+             "preparedness is essential for community safety.",
+        font=("Arial", 11),
+        bg=BACKGROUND,
+        fg=DARK_GRAY,
+        wraplength=750,
+        justify="left"
+    ).pack(
+        fill="x",
+        pady=5
+    )
+
+
+    tk.Label(
+        home_box,
+        text="This platform aims to help residents stay informed, prepared, "
+             "and safe before, during, and after disasters.",
+        font=("Arial", 11),
+        bg=BACKGROUND,
+        fg=DARK_GRAY,
+        wraplength=750,
+        justify="left"
+    ).pack(
+        fill="x",
+        pady=(5, 20)
+    )
+
+
+    # =========================
+    # WHAT YOU CAN FIND
+    # =========================
+
+    tk.Label(
+        home_box,
+        text="What You Can Find",
+        font=("Arial", 17, "bold"),
+        bg=BACKGROUND,
+        fg=BLUE
+    ).pack(
+        anchor="w",
+        pady=(5, 10)
+    )
+
+
+    tk.Label(
+        home_box,
+        text="• Disaster Recognition – Learn about common disasters in "
+             "Dagupan City and how to recognize warning signs.\n\n"
+             "• Safe Zone Locations – View designated evacuation areas "
+             "and safe places near your community.\n\n"
+             "• Emergency Checklist – Prepare essential items and steps "
+             "to take before and during emergencies.\n\n"
+             "• Emergency Hotlines – Quickly access important contact "
+             "numbers for rescue and emergency services.\n\n"
+             "• Emergency Reporting – Report urgent situations to help "
+             "authorities respond faster.",
+        font=("Arial", 10),
+        bg=BACKGROUND,
+        fg=DARK_GRAY,
+        wraplength=750,
+        justify="left"
+    ).pack(
+        fill="x",
+        pady=(0, 20)
+    )
+
+
+    # =========================
+    # HOW iHANDA HELPS
+    # =========================
+
+    tk.Label(
+        home_box,
+        text="How iHANDA Dagupan Helps the Community",
+        font=("Arial", 17, "bold"),
+        bg=BACKGROUND,
+        fg=BLUE
+    ).pack(
+        anchor="w",
+        pady=(5, 10)
+    )
+
+
+    tk.Label(
+        home_box,
+        text="iHANDA Dagupan serves as a guide and information hub for "
+             "residents, especially during times of crisis. By providing "
+             "clear instructions and accessible resources, the platform "
+             "supports faster response and better decision-making during "
+             "disasters.",
+        font=("Arial", 10),
+        bg=BACKGROUND,
+        fg=DARK_GRAY,
+        wraplength=750,
+        justify="left"
+    ).pack(
+        fill="x",
+        pady=5
+    )
+
+
+    tk.Label(
+        home_box,
+        text="This website also encourages community cooperation by "
+             "helping residents know where to go, who to contact, and "
+             "what to do in emergency situations.",
+        font=("Arial", 10),
+        bg=BACKGROUND,
+        fg=DARK_GRAY,
+        wraplength=750,
+        justify="left"
+    ).pack(
+        fill="x",
+        pady=(5, 20)
+    )
+
+
+    # =========================
+    # BE PREPARED, STAY SAFE
+    # =========================
+
+    tk.Label(
+        home_box,
+        text="Be Prepared, Stay Safe",
+        font=("Arial", 17, "bold"),
+        bg=BACKGROUND,
+        fg=RED
+    ).pack(
+        anchor="w",
+        pady=(5, 10)
+    )
+
+
+    tk.Label(
+        home_box,
+        text="Disasters can happen at any time. Being informed and "
+             "prepared can save lives. We encourage all residents of "
+             "Dagupan City to explore this website, review the safety "
+             "guides, and share this information with family and neighbors.",
+        font=("Arial", 10),
+        bg=BACKGROUND,
+        fg=DARK_GRAY,
+        wraplength=750,
+        justify="left"
+    ).pack(
+        fill="x",
+        pady=(0, 20)
+    )
+
+
+    # =========================
+    # COPYRIGHT
+    # =========================
+
+    tk.Label(
+        home_box,
+        text="© 2026 iHANDA Dagupan | Disaster Preparedness for Dagupan City",
+        font=("Arial", 9),
+        bg=BACKGROUND,
+        fg="#777777"
+    ).pack(
+        pady=(5, 20)
+    )
+
+
+    # =========================
+    # MOUSE SCROLL
+    # =========================
+
+    def home_mouse_scroll(event):
+
+        canvas.yview_scroll(
+            int(-1 * (event.delta / 120)),
+            "units"
+        )
+
+    canvas.bind_all(
+        "<MouseWheel>",
+        home_mouse_scroll
+    )
+
+
+# =========================
+# READY KIT
+# =========================
+
+def show_ready_kit():
+
+    clear()
+
+    tk.Label(
+        content,
+        text="Safety Precautions / Ready Kit",
+        font=("Arial", 22, "bold"),
+        bg=BACKGROUND,
+        fg=BLUE
+    ).pack(
+        pady=(25, 10)
+    )
+
+
+    # =========================
+    # DESCRIPTION
+    # =========================
+
+    tk.Label(
+        content,
+        text="What is a Ready Kit?",
+        font=("Arial", 15, "bold"),
+        bg=BACKGROUND,
+        fg=RED
+    ).pack(
+        pady=(5, 5)
+    )
+
+
+    tk.Label(
+        content,
+        text="A ready kit is a collection of important supplies that can\n"
+             "help you and your family during an emergency or disaster.\n"
+             "It should be prepared before an emergency happens.",
+        font=("Arial", 11),
+        bg=BACKGROUND,
+        fg=DARK_GRAY,
+        justify="center"
+    ).pack(
+        pady=(0, 15)
+    )
+
+
+    # =========================
+    # SCROLL AREA
+    # =========================
+
+    area = tk.Frame(
+        content,
+        bg=BACKGROUND
+    )
+
+    area.pack(
+        fill="both",
+        expand=True,
+        padx=70,
+        pady=5
+    )
+
+
+    canvas = tk.Canvas(
+        area,
+        bg=BACKGROUND,
+        highlightthickness=0
+    )
+
+
+    scrollbar = tk.Scrollbar(
+        area,
+        orient="vertical",
+        command=canvas.yview
+    )
+
+
+    box = tk.Frame(
+        canvas,
+        bg=LIGHT_BLUE
+    )
+
+
+    canvas_window = canvas.create_window(
+        (0, 0),
+        window=box,
+        anchor="nw"
+    )
+
+
+    def update_ready_scroll(event):
+
+        canvas.configure(
+            scrollregion=canvas.bbox("all")
+        )
+
+
+    box.bind(
+        "<Configure>",
+        update_ready_scroll
+    )
+
+
+    def resize_ready(event):
+
+        canvas.itemconfig(
+            canvas_window,
+            width=event.width
+        )
+
+
+    canvas.bind(
+        "<Configure>",
+        resize_ready
+    )
+
+
+    canvas.configure(
+        yscrollcommand=scrollbar.set
+    )
+
+
+    canvas.pack(
+        side="left",
+        fill="both",
+        expand=True
+    )
+
+
+    scrollbar.pack(
+        side="right",
+        fill="y"
+    )
+
+
+    # =========================
+    # READY KIT ITEMS
+    # =========================
+
+    items = [
+        "Drinking water",
+        "Non-perishable food",
+        "Flashlight",
+        "Extra batteries",
+        "First aid kit",
+        "Important documents",
+        "Whistle",
+        "Power bank",
+        "Basic medicines",
+        "Extra clothes"
+    ]
+
+
+    for item in items:
+
+        tk.Label(
+            box,
+            text="• " + item,
+            font=("Arial", 11),
+            bg=LIGHT_BLUE,
+            fg=BLUE,
+            anchor="w"
+        ).pack(
+            fill="x",
+            padx=20,
+            pady=5
+        )
+
+
+    tk.Label(
+        content,
+        text="Preparedness reminder: Know your evacuation route,\n"
+             "keep important documents safe, and monitor official\n"
+             "weather and disaster announcements.",
+        font=("Arial", 10),
+        bg=BACKGROUND,
+        fg=RED,
+        justify="center"
+    ).pack(
+        pady=10
+    )
+
+
+    # =========================
+    # MOUSE SCROLL
+    # =========================
+
+    def ready_mouse_scroll(event):
+
+        canvas.yview_scroll(
+            int(-1 * (event.delta / 120)),
+            "units"
+        )
+
+
+    canvas.bind_all(
+        "<MouseWheel>",
+        ready_mouse_scroll
+    )
+
+
+# =========================
+# DISASTER INFORMATION
+# =========================
+
+disasters = {
+
+    "Flood": {
+
+        "description":
+            "A flood is the overflowing of water that covers areas "
+            "that are not normally submerged. It may happen because "
+            "of excessive rainfall and overflowing bodies of water.",
+
+        "Before": [
+            "Monitor weather and flood warnings from reliable sources.",
+            "Prepare an emergency kit and important documents.",
+            "Know your evacuation route and safe areas.",
+            "Keep important belongings in safe and elevated places."
+        ],
+
+        "During": [
+            "Move to higher and safer areas when instructed.",
+            "Avoid walking or driving through floodwater.",
+            "Follow official evacuation instructions.",
+            "If safe to do so, turn off electricity before evacuating."
+        ],
+
+        "After": [
+            "Wait for authorities to announce that it is safe to return.",
+            "Avoid floodwater because it may contain hazards.",
+            "Check your home for possible damage before entering.",
+            "Continue monitoring official announcements."
+        ],
+
+        "Source":
+            "DOST-PAGASA — Flood Learning Tool"
+    },
+
+
+    "Earthquake": {
+
+        "description":
+            "An earthquake is the shaking of the ground caused by "
+            "the sudden movement of rocks below the Earth's surface. "
+            "It may cause damage to buildings and other structures.",
+
+        "Before": [
+            "Secure heavy furniture and appliances.",
+            "Prepare an emergency kit.",
+            "Know safe places inside your home or building.",
+            "Plan where your family will meet after an earthquake."
+        ],
+
+        "During": [
+            "DROP to the ground.",
+            "COVER your head and body under a sturdy table or desk.",
+            "HOLD ON until the shaking stops.",
+            "Stay away from windows and objects that may fall."
+        ],
+
+        "After": [
+            "Expect possible aftershocks.",
+            "Check yourself and others for injuries.",
+            "Stay away from damaged buildings.",
+            "Follow official instructions and evacuation information."
+        ],
+
+        "Source":
+            "DOST-PHIVOLCS — Earthquake Safety Guidance"
+    },
+
+
+    "Fire": {
+
+        "description":
+            "Fire is the process of burning that produces heat and "
+            "light. It can spread quickly and may damage people, "
+            "buildings, property, and the environment.",
+
+        "Before": [
+            "Keep flammable materials away from heat sources.",
+            "Check electrical wires and appliances regularly.",
+            "Know the emergency exits in your home, school, or workplace.",
+            "Prepare and practice an evacuation plan."
+        ],
+
+        "During": [
+            "Stay calm and evacuate immediately when there is danger.",
+            "Use the nearest safe exit.",
+            "Stay low if there is smoke.",
+            "Call 911 or the local fire station for assistance."
+        ],
+
+        "After": [
+            "Do not return until authorities say it is safe.",
+            "Stay away from damaged areas.",
+            "Report remaining hazards to authorities.",
+            "Follow instructions from emergency responders."
+        ],
+
+        "Source":
+            "Bureau of Fire Protection — Emergency Preparedness Guide"
+    },
+
+
+    "Tsunami": {
+
+        "description":
+            "A tsunami is a series of sea waves commonly generated "
+            "by under-the-sea earthquakes. It can affect coastal "
+            "areas and may cause dangerous flooding.",
+
+        "Before": [
+            "Know if your area is near a coastal or tsunami-prone area.",
+            "Know evacuation routes leading to higher ground.",
+            "Prepare an emergency kit.",
+            "Learn the natural warning signs of a tsunami."
+        ],
+
+        "During": [
+            "If you feel a strong or long earthquake near the coast, move to higher ground.",
+            "If the sea suddenly rises or falls, evacuate immediately.",
+            "Move away from coastal areas.",
+            "Follow official tsunami warnings and evacuation instructions."
+        ],
+
+        "After": [
+            "Do not return to the coast until authorities declare it safe.",
+            "Be alert for possible additional waves.",
+            "Continue following official announcements.",
+            "Avoid damaged and dangerous areas."
+        ],
+
+        "Source":
+            "DOST-PHIVOLCS — Tsunami Information"
+    }
+}
+
+
+# =========================
+# DISASTER PAGE
+# =========================
+
+def show_disaster(name=None):
+
+    clear()
+
+    tk.Label(
+        content,
+        text="Disaster Safety Information",
+        font=("Arial", 22, "bold"),
+        bg=BACKGROUND,
+        fg=BLUE
+    ).pack(
+        pady=(20, 10)
+    )
+
+
+    # =========================
+    # DISASTER BUTTONS
+    # =========================
+
+    buttons = tk.Frame(
+        content,
+        bg=BACKGROUND
+    )
+
+    buttons.pack(
+        pady=5
+    )
+
+
+    for disaster in disasters:
+
+        tk.Button(
+            buttons,
+            text=disaster,
+            width=12,
+            bg=RED if disaster in ["Flood", "Tsunami"]
+            else "#2563A6",
+            fg=WHITE,
+            command=lambda d=disaster: show_disaster(d)
+        ).pack(
+            side="left",
+            padx=4
+        )
+
+
+    # =========================
+    # SCROLL AREA
+    # =========================
+
+    area = tk.Frame(
+        content,
+        bg=BACKGROUND
+    )
+
+    area.pack(
+        fill="both",
+        expand=True,
+        padx=40,
+        pady=10
+    )
+
+
+    canvas = tk.Canvas(
+        area,
+        bg=BACKGROUND,
+        highlightthickness=0
+    )
+
+
+    scrollbar = tk.Scrollbar(
+        area,
+        orient="vertical",
+        command=canvas.yview
+    )
+
+
+    info = tk.Frame(
+        canvas,
+        bg=WHITE
+    )
+
+
+    canvas_window = canvas.create_window(
+        (0, 0),
+        window=info,
+        anchor="nw"
+    )
+
+
+    def update_scroll(event):
+
+        canvas.configure(
+            scrollregion=canvas.bbox("all")
+        )
+
+
+    info.bind(
+        "<Configure>",
+        update_scroll
+    )
+
+
+    def resize_info(event):
+
+        canvas.itemconfig(
+            canvas_window,
+            width=event.width
+        )
+
+
+    canvas.bind(
+        "<Configure>",
+        resize_info
+    )
+
+
+    canvas.configure(
+        yscrollcommand=scrollbar.set
+    )
+
+
+    canvas.pack(
+        side="left",
+        fill="both",
+        expand=True
+    )
+
+
+    scrollbar.pack(
+        side="right",
+        fill="y"
+    )
+
+
+    # =========================
+    # INFORMATION
+    # =========================
+
+    if name:
+
+        tk.Label(
+            info,
+            text=name,
+            font=("Arial", 20, "bold"),
+            bg=WHITE,
+            fg=RED
+        ).pack(
+            pady=(15, 8)
+        )
+
+
+        tk.Label(
+            info,
+            text="What is " + name + "?",
+            font=("Arial", 15, "bold"),
+            bg=WHITE,
+            fg=BLUE
+        ).pack(
+            anchor="w",
+            padx=25,
+            pady=(5, 5)
+        )
+
+
+        tk.Label(
+            info,
+            text=disasters[name]["description"],
+            font=("Arial", 11),
+            bg=WHITE,
+            fg=DARK_GRAY,
+            wraplength=700,
+            justify="left"
+        ).pack(
+            fill="x",
+            padx=25,
+            pady=(0, 15)
+        )
+
+
+        # =========================
+        # BEFORE / DURING / AFTER
+        # =========================
+
+        for part in ["Before", "During", "After"]:
+
+            tk.Label(
+                info,
+                text=part,
+                font=("Arial", 15, "bold"),
+                bg=WHITE,
+                fg=BLUE
+            ).pack(
+                anchor="w",
+                padx=25,
+                pady=(10, 5)
+            )
+
+
+            for text in disasters[name][part]:
+
+                tk.Label(
+                    info,
+                    text="• " + text,
+                    font=("Arial", 11),
+                    bg=WHITE,
+                    fg=DARK_GRAY,
+                    wraplength=700,
+                    justify="left",
+                    anchor="w"
+                ).pack(
+                    fill="x",
+                    padx=30,
+                    pady=4
+                )
+
+
+        tk.Label(
+            info,
+            text="Information based on official disaster preparedness guidance.",
+            font=("Arial", 9, "italic"),
+            bg=WHITE,
+            fg="#777777"
+        ).pack(
+            pady=20
+        )
+
+
+    else:
+
+        tk.Label(
+            info,
+            text="Select a disaster above to view its information.",
+            font=("Arial", 12),
+            bg=WHITE,
+            fg=DARK_GRAY
+        ).pack(
+            pady=40
+        )
+
+
+    # =========================
+    # MOUSE SCROLL
+    # =========================
+
+    def disaster_mouse_scroll(event):
+
+        canvas.yview_scroll(
+            int(-1 * (event.delta / 120)),
+            "units"
+        )
+
+
+    canvas.bind_all(
+        "<MouseWheel>",
+        disaster_mouse_scroll
+    )
+
+
+# =========================
+# MENU
+# =========================
+
+def show_menu():
+
+    global menu_frame
+
+    # Close menu if already open
+    if menu_frame is not None:
+
+        menu_frame.destroy()
+        menu_frame = None
+
+        return
+
+
+    # =========================
+    # MENU FRAME
+    # =========================
+
+    menu_frame = tk.Frame(
+        window,
+        bg=WHITE,
+        bd=1,
+        relief="solid"
+    )
+
+
+    menu_frame.place(
+        relx=0.97,
+        y=105,
+        anchor="ne",
+        width=280
+    )
+
+
+    tk.Label(
+        menu_frame,
+        text="Menu",
+        font=("Arial", 15, "bold"),
+        bg=WHITE,
+        fg=BLUE
+    ).pack(
+        pady=(15, 8)
+    )
+
+
+    pages = [
+        ("Home", show_home),
+        ("Disaster Recognition", show_disaster),
+        ("Safety Precautions / Ready Kit", show_ready_kit)
+    ]
+
+
+    def select_page(command):
+
+        global menu_frame
+
+        if menu_frame is not None:
+
+            menu_frame.destroy()
+            menu_frame = None
+
+        command()
+
+
+    for text, command in pages:
+
+        button = tk.Button(
+            menu_frame,
+            text=text,
+            font=("Arial", 10, "bold"),
+            bg="#2563A6",
+            fg=WHITE,
+            activebackground="#2563A6",
+            activeforeground=WHITE,
+            relief="flat",
+            cursor="hand2",
+            command=lambda c=command: select_page(c)
+        )
+
+        button.pack(
+            fill="x",
+            padx=15,
+            pady=4
+        )
+
+
+    tk.Button(
+        menu_frame,
+        text="Close",
+        font=("Arial", 9, "bold"),
+        bg=WHITE,
+        fg=RED,
+        relief="flat",
+        cursor="hand2",
+        command=close_menu
+    ).pack(
+        pady=8
+    )
+
+
+# =========================
+# START
+# =========================
+
+show_home()
+
+window.mainloop()
