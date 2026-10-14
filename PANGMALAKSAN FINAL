@@ -1,0 +1,3960 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+from datetime import datetime
+import os
+import re
+
+
+# =========================================================
+# COLORS
+# =========================================================
+
+BLUE = "#0D47A1"
+DARK_BLUE = "#08306B"
+RED = "#C62828"
+LIGHT_RED = "#E53935"
+LIGHT_BLUE = "#EAF3FA"
+BACKGROUND = "#F5F6FA"
+WHITE = "#FFFFFF"
+TEXT = "#222222"
+GRAY = "#666666"
+BORDER = "#D9DEE7"
+GREEN = "#2E7D32"
+ORANGE = "#E65100"
+
+
+# =========================================================
+# ADMIN LOGIN
+# =========================================================
+
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "ihanda2026"
+
+# Single source of truth for the admin session. Every admin action
+# checks this (see require_admin) - hiding buttons is not the only guard.
+ADMIN_SESSION = {"active": False}
+
+
+# =========================================================
+# INPUT RULES (Emergency Report)
+# =========================================================
+
+BARANGAY_PLACEHOLDER = "Select Barangay / Area"
+TYPE_PLACEHOLDER = "Select Emergency Type"
+
+NAME_RE = r"[A-Za-zÑñ .'\-]*"
+LOCATION_RE = r"[A-Za-z0-9Ññ .,#'&()/\-]*"
+BARANGAY_RE = r"[A-Za-z0-9Ññ .,&'\-]*"
+
+CONTACT_LENGTH = 11
+
+EMERGENCY_TYPES = ["Flood", "Earthquake", "Fire", "Tsunami", "Other"]
+
+
+# =========================================================
+# DISASTER INFORMATION
+# =========================================================
+
+DISASTERS = {
+    "Flood": {
+        "description": (
+            "A flood is the overflowing or accumulation of water that "
+            "covers areas that are normally not submerged. Flooding can "
+            "be caused by excessive rainfall, overflowing rivers and "
+            "other bodies of water, and drainage problems."
+        ),
+        "before": [
+            "Know if your location is prone to flooding.",
+            "Monitor weather conditions and flood warnings.",
+            "Know your family's evacuation area and route.",
+            "Prepare food and drinking water.",
+            "Prepare a flashlight, radio, extra batteries, and first aid kit.",
+            "Store important belongings above the expected flood level."
+        ],
+        "during": [
+            "Move to a safe area when evacuation is necessary.",
+            "Avoid areas subject to sudden flooding.",
+            "Do not cross dangerous rivers or flowing streams.",
+            "Be careful around flooded roads and bridges.",
+            "Listen to emergency instructions.",
+            "Drink clean or preferably boiled water."
+        ],
+        "after": [
+            "Re-enter buildings with caution.",
+            "Watch for broken electrical wires.",
+            "Do not eat contaminated food or drink contaminated water.",
+            "Report broken utility lines.",
+            "Do not use electrical appliances until checked.",
+            "Continue following official instructions."
+        ],
+        "source": "DOST-PAGASA - Flood Safety Guidelines"
+    },
+
+    "Earthquake": {
+        "description": (
+            "An earthquake is the shaking of the ground caused by sudden "
+            "movement beneath the Earth's surface. Strong earthquakes "
+            "can damage buildings and other structures."
+        ),
+        "before": [
+            "Prepare an emergency kit.",
+            "Secure heavy furniture and appliances.",
+            "Fasten hanging objects.",
+            "Know safe places inside your home, school, or workplace.",
+            "Prepare a family communication and meeting plan."
+        ],
+        "during": [
+            "DROP to the ground.",
+            "COVER your head and body under a sturdy table or protect your head and neck.",
+            "HOLD until the shaking stops.",
+            "Stay away from windows and objects that may fall."
+        ],
+        "after": [
+            "Be prepared for possible aftershocks.",
+            "Stay away from damaged buildings.",
+            "Do not re-enter damaged buildings unless declared safe.",
+            "Watch for cracks and possible landslides.",
+            "Follow official announcements and instructions."
+        ],
+        "source": "DOST-PHIVOLCS – Earthquake Safety Guidelines"
+    },
+
+    "Fire": {
+        "description": (
+            "Fire is a rapid chemical reaction that produces heat and light. "
+            "An uncontrolled fire can spread quickly and cause damage to "
+            "people and property."
+        ),
+        "before": [
+            "Know the emergency exits.",
+            "Keep exits clear.",
+            "Know the location of fire extinguishers.",
+            "Prepare an evacuation plan.",
+            "Know the designated assembly area."
+        ],
+        "during": [
+            "Stay calm.",
+            "Follow the emergency evacuation route.",
+            "Do not block exits.",
+            "Do not use elevators during evacuation.",
+            "Do not return for personal belongings.",
+            "Follow instructions from firefighters and emergency responders."
+        ],
+        "after": [
+            "Do not immediately return to the building.",
+            "Wait for authorities to determine if it is safe.",
+            "Stay away from damaged structures.",
+            "Follow emergency responder instructions."
+        ],
+        "source": "Bureau of Fire Protection – Fire Safety Guidelines"
+    },
+
+    "Tsunami": {
+        "description": (
+            "A tsunami is a series of sea waves commonly generated by "
+            "undersea earthquakes. It can affect coastal areas and "
+            "cause dangerous flooding."
+        ),
+        "before": [
+            "Know if your community is near a tsunami-prone coastal area.",
+            "Know your evacuation route.",
+            "Identify higher ground or safer areas.",
+            "Prepare an emergency kit.",
+            "Learn the natural warning signs."
+        ],
+        "during": [
+            "SHAKE – A strong earthquake is felt.",
+            "DROP – The sea level suddenly rises or falls.",
+            "ROAR – An unusual roaring sound from the sea may be heard.",
+            "If you feel a strong earthquake near the coast, move inland or to higher ground.",
+            "Follow official tsunami warnings."
+        ],
+        "after": [
+            "Stay away from beaches and coastal areas.",
+            "Do not go to the shoreline to watch the waves.",
+            "Do not return until authorities say it is safe.",
+            "Continue following official tsunami warnings."
+        ],
+        "source": "DOST-PHIVOLCS – Tsunami Safety and Preparedness"
+    }
+}
+
+
+# =========================================================
+# READY KIT
+# =========================================================
+
+KIT_ITEMS = {
+    "General Emergency Kit": [
+        "Drinking water",
+        "Ready-to-eat food",
+        "Flashlight",
+        "Extra batteries",
+        "First aid kit",
+        "Battery-powered radio",
+        "Power bank",
+        "Whistle",
+        "Important documents",
+        "Emergency contact list",
+        "Medicines",
+        "Extra clothes",
+        "Hygiene supplies",
+        "Cash",
+        "Face masks"
+    ],
+
+    "Flood Kit": [
+        "Drinking water",
+        "Ready-to-eat food",
+        "Waterproof bag",
+        "Flashlight",
+        "Extra batteries",
+        "Whistle",
+        "First aid kit",
+        "Power bank",
+        "Emergency contact list",
+        "Extra clothes",
+        "Rubber boots if available"
+    ],
+
+    "Earthquake Kit": [
+        "First aid kit",
+        "Flashlight",
+        "Extra batteries",
+        "Whistle",
+        "Battery-powered radio",
+        "Power bank",
+        "Water",
+        "Ready-to-eat food",
+        "Emergency contact list",
+        "Sturdy shoes"
+    ],
+
+    "Fire Emergency Kit": [
+        "Flashlight",
+        "Whistle",
+        "First aid kit",
+        "Face masks",
+        "Emergency contact list",
+        "Important documents",
+        "Water",
+        "Power bank"
+    ],
+
+    "Tsunami Kit": [
+        "Drinking water",
+        "Ready-to-eat food",
+        "Flashlight",
+        "Extra batteries",
+        "Whistle",
+        "First aid kit",
+        "Battery-powered radio",
+        "Power bank",
+        "Emergency contact list",
+        "Extra clothes"
+    ]
+}
+
+
+# =========================================================
+# EMERGENCY HOTLINES
+# =========================================================
+
+HOTLINES = [
+    ("NATIONAL EMERGENCY HOTLINE", "911"),
+    ("CDRRMO", "0968-444-9598 / (075) 540-0363"),
+    ("DAGUPAN CITY POLICE STATION", "0933-502-4899 / (075) 529-5604"),
+    ("DAGUPAN CITY FIRE STATION", "0917-184-2611"),
+    ("PANDA VOLUNTEER FIRE BRIGADE", "0932-548-1545"),
+    ("PHILIPPINE RED CROSS", "0928-559-2701 / (075) 632-3296"),
+    ("PNP MARITIME GROUP", "0967-008-0092"),
+    ("PHILIPPINE COAST GUARD", "0966-415-1949"),
+    ("PUBLIC ALERT AND RESPONSE MANAGEMENT CENTER (PARMC)", "0985-187-3333"),
+    ("CITY HEALTH OFFICE", "0997-840-1377"),
+    ("POSO", "0998-173-9525")
+]
+
+
+# =========================================================
+# FIRST AID
+# =========================================================
+
+FIRST_AID = [
+    (
+        "Stay Safe",
+        "Make sure the area is safe before helping the injured person. "
+        "Avoid fire, electrical wires, unstable structures, or other hazards."
+    ),
+    (
+        "Check the Person",
+        "Check if the person is conscious and breathing normally. Look for "
+        "severe bleeding, difficulty breathing, or other serious injuries."
+    ),
+    (
+        "Control Severe Bleeding",
+        "Apply firm, direct pressure to a bleeding wound using a clean cloth "
+        "or dressing. Seek emergency medical assistance if the bleeding is "
+        "severe or does not stop."
+    ),
+    (
+        "Handle Injuries Carefully",
+        "Keep serious injuries and suspected fractures still. Avoid "
+        "unnecessary movement and do not attempt to straighten a broken bone."
+    ),
+    (
+        "Respond to Breathing Problems",
+        "If the person is having difficulty breathing or is not breathing "
+        "normally, call emergency medical assistance immediately. If trained, "
+        "provide appropriate first aid or CPR."
+    ),
+    (
+        "Treat Burns",
+        "If the person has a burn, stop the source of the injury when safe "
+        "and cool the affected area with clean, cool running water. Seek "
+        "medical attention for serious burns."
+    ),
+    (
+        "Get Professional Help",
+        "Contact emergency responders and provide information about the "
+        "person's condition. Continue monitoring the person until professional "
+        "help arrives."
+    )
+]
+
+
+# =========================================================
+# BARANGAYS
+# =========================================================
+
+BARANGAYS = [
+    "Bacayao Norte",
+    "Bacayao Sur",
+    "Barangay I",
+    "Barangay II & III",
+    "Barangay IV",
+    "Bolosan",
+    "Bonuan Binloc",
+    "Bonuan Boquig",
+    "Bonuan Gueset",
+    "Calmay",
+    "Carael",
+    "Caranglaan",
+    "Herrero-Perez",
+    "Lasip Chico",
+    "Lasip Grande",
+    "Lomboy",
+    "Lucao",
+    "Malued",
+    "Mamalingling",
+    "Mangin",
+    "Mayombo",
+    "Pantal",
+    "Poblacion Oeste",
+    "Pogo Chico",
+    "Pogo Grande",
+    "Pugaro",
+    "Salapingao",
+    "Salisay",
+    "Tambac",
+    "Tapuac",
+    "Tebeng"
+]
+
+
+# =========================================================
+# EVACUATION AREAS
+# ADMIN CAN EDIT THIS LIST
+# =========================================================
+
+EVACUATION_AREAS = [
+    {
+        "name": "Dagupan City Astrodome",
+        "barangay": "Pantal",
+        "location": "Pantal, Dagupan City",
+        "capacity": "500",
+        "notes": "Follow official evacuation instructions."
+    },
+    {
+        "name": "West Central Elementary School",
+        "barangay": "Poblacion Oeste",
+        "location": "Poblacion Oeste, Dagupan City",
+        "capacity": "250",
+        "notes": "Use only when officially designated."
+    }
+]
+
+
+# =========================================================
+# RESPONSE ORGANIZATIONS  (for the "Assign to Organization" dropdown)
+# Contact numbers are NOT invented: they are looked up from the
+# HOTLINES list above. Organizations without an entry there show
+# "No contact listed".
+# =========================================================
+
+UNASSIGNED = "Unassigned"
+
+RESPONSE_ORGANIZATIONS = [
+    "Unassigned",
+    "Barangay Officials / Barangay DRRM Committee",
+    "Dagupan City Disaster Risk Reduction and Management Office (CDRRMO)",
+    "Bureau of Fire Protection (BFP)",
+    "Philippine National Police (PNP)",
+    "Philippine Red Cross",
+    "Philippine Coast Guard",
+    "Other authorized emergency response organization"
+]
+
+ORGANIZATIONS = RESPONSE_ORGANIZATIONS[1:]
+
+# organization -> name used in the HOTLINES list
+ORG_HOTLINE_NAME = {
+    "Dagupan City Disaster Risk Reduction and Management Office (CDRRMO)":
+        "CDRRMO",
+    "Bureau of Fire Protection (BFP)": "DAGUPAN CITY FIRE STATION",
+    "Philippine National Police (PNP)": "DAGUPAN CITY POLICE STATION",
+    "Philippine Red Cross": "PHILIPPINE RED CROSS",
+    "Philippine Coast Guard": "PHILIPPINE COAST GUARD"
+}
+
+
+# =========================================================
+# EMERGENCY RESPONSE SIMULATION (who can be "notified")
+# This is a demonstration only - nobody is actually contacted.
+# =========================================================
+
+DISPATCH_RECIPIENTS = [
+    "CDRRMO",
+    "Barangay Officials / Barangay DRRM Committee",
+    "Bureau of Fire Protection (BFP)",
+    "Philippine National Police (PNP)",
+    "Philippine Coast Guard",
+    "City Health Office / Medical Responders"
+]
+
+DISPATCH_SUGGESTIONS = {
+    "flood": [
+        "CDRRMO",
+        "Barangay Officials / Barangay DRRM Committee",
+        "City Health Office / Medical Responders"
+    ],
+    "earthquake": [
+        "CDRRMO",
+        "Barangay Officials / Barangay DRRM Committee",
+        "City Health Office / Medical Responders"
+    ],
+    "fire": [
+        "Bureau of Fire Protection (BFP)",
+        "CDRRMO",
+        "Barangay Officials / Barangay DRRM Committee"
+    ],
+    "tsunami": [
+        "CDRRMO",
+        "Philippine Coast Guard",
+        "Barangay Officials / Barangay DRRM Committee"
+    ],
+    "other": [
+        "CDRRMO",
+        "Barangay Officials / Barangay DRRM Committee"
+    ]
+}
+
+
+# =========================================================
+# REPORT STATUSES
+# =========================================================
+
+REPORT_STATUSES = ["Pending", "Verified", "In Progress", "Resolved"]
+STATUSES = REPORT_STATUSES
+ACTIVE_STATUSES = ["Pending", "Verified", "In Progress"]
+
+STATUS_COLORS = {
+    "Pending": RED,
+    "Verified": BLUE,
+    "In Progress": ORANGE,
+    "Resolved": GREEN
+}
+
+DELIVERY_NOTE = "Saved locally in this system (not transmitted to any organization)"
+
+
+# =========================================================
+# REPORT STORAGE
+# Reports are kept in memory (same as the original system).
+# They are lost when the program is closed.
+# A report is NEVER deleted: "Resolved" reports are simply
+# shown in the Response Archive instead of Active Reports.
+# =========================================================
+
+EMERGENCY_REPORTS = []
+
+
+# =========================================================
+# REPORT SERVICE LAYER
+# All report creation / updates go through these functions so
+# every screen sees the same, consistent data. Each function
+# finds the report by its unique report_id, so an action can
+# never change a different report by accident.
+# =========================================================
+
+def now_text():
+    return datetime.now().strftime("%B %d, %Y | %I:%M %p")
+
+
+def require_admin():
+    """Raised for any protected action when no admin is logged in."""
+    if not ADMIN_SESSION["active"]:
+        raise PermissionError("Administrator login required.")
+
+
+def new_report_id():
+    stamp = datetime.now().strftime("%Y%m%d")
+    existing = {r["report_id"] for r in EMERGENCY_REPORTS}
+    number = len(EMERGENCY_REPORTS) + 1
+
+    while f"IH-{stamp}-{number:04d}" in existing:
+        number += 1
+
+    return f"IH-{stamp}-{number:04d}"
+
+
+def add_history(report, text):
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    report["history"].append(f"[{stamp}] {text}")
+
+
+def find_report(report_id):
+    for report in EMERGENCY_REPORTS:
+        if report["report_id"] == report_id:
+            return report
+    return None
+
+
+def find_duplicate(data):
+    """Return an unresolved report with identical content, if any."""
+    keys = ("name", "contact", "barangay", "location",
+            "emergency", "description")
+
+    for report in EMERGENCY_REPORTS:
+        if report["status"] == "Resolved":
+            continue
+        if all(
+            str(report[k]).lower() == str(data[k]).lower() for k in keys
+        ):
+            return report
+    return None
+
+
+def create_report(data):
+    """Save a new report (public action - no admin login needed)."""
+    report = {
+        "report_id": new_report_id(),
+        "name": data["name"],
+        "contact": data["contact"],
+        "barangay": data["barangay"],
+        "location": data["location"],
+        "emergency": data["emergency"],
+        "description": data["description"],
+        "photo": data["photo"],
+        "date_time": now_text(),
+        "submitted_iso": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "status": "Pending",
+        "assigned_organization": UNASSIGNED,
+        "response_notes": "",
+        "completed_at": "",
+        "sent_to_officials": "",
+        "sent_to_officials_at": "",
+        "history": []
+    }
+    add_history(report, "Report created. " + DELIVERY_NOTE + ".")
+    EMERGENCY_REPORTS.append(report)
+    return report
+
+
+def update_report(report_id, status, organization, notes):
+    """Update status / organization / notes. Returns (ok, message)."""
+    require_admin()
+
+    report = find_report(report_id)
+    notes = notes.strip() if notes else ""
+
+    if report is None:
+        return False, "Report not found."
+
+    if status not in REPORT_STATUSES:
+        return False, "Please select a valid status."
+
+    if organization not in RESPONSE_ORGANIZATIONS:
+        return False, "Please select a valid organization."
+
+    if status in ("In Progress", "Resolved") and organization == UNASSIGNED:
+        return False, (
+            "Please assign an organization before setting the status to "
+            f"'{status}'."
+        )
+
+    if len(notes) > 1000:
+        return False, "Response notes must be 1000 characters or fewer."
+
+    old_status = report["status"]
+    changed = False
+    message = "Report updated successfully."
+
+    if status != old_status:
+        add_history(report, f"Status changed: {old_status} -> {status}")
+        report["status"] = status
+        changed = True
+
+        if status == "Resolved":
+            report["completed_at"] = now_text()
+            add_history(
+                report, "Response completed. Moved to Response Archive."
+            )
+            message = (
+                "Report marked as Resolved and moved to the Response Archive."
+            )
+        elif old_status == "Resolved":
+            add_history(
+                report,
+                "Report reopened (previously completed on "
+                f"{report['completed_at'] or 'unknown date'})."
+            )
+            report["completed_at"] = ""
+            message = "Report reopened and returned to Active Reports."
+
+    if organization != report["assigned_organization"]:
+        add_history(
+            report,
+            "Assigned organization: "
+            f"{report['assigned_organization']} -> {organization}"
+        )
+        report["assigned_organization"] = organization
+        changed = True
+
+    if notes != report["response_notes"]:
+        report["response_notes"] = notes
+        add_history(
+            report,
+            "Response notes updated: "
+            + (" ".join(notes.split())[:120] if notes else "(cleared)")
+        )
+        changed = True
+
+    if not changed:
+        return True, "No changes to save."
+
+    return True, message
+
+
+def reopen_report(report_id):
+    """Move an archived report back to Active Reports. Returns (ok, message)."""
+    require_admin()
+
+    report = find_report(report_id)
+
+    if report is None:
+        return False, "Report not found."
+
+    if report["status"] != "Resolved":
+        return False, "Only archived (Resolved) reports can be reopened."
+
+    add_history(
+        report,
+        "Report reopened (previously completed on "
+        f"{report['completed_at'] or 'unknown date'}). Status: In Progress"
+    )
+    report["status"] = "In Progress"
+    report["completed_at"] = ""
+
+    return True, "Report reopened and returned to Active Reports."
+
+
+def dispatch_report(report_id, recipients):
+    """SIMULATED dispatch. Nobody is contacted. Returns (ok, message)."""
+    require_admin()
+
+    report = find_report(report_id)
+
+    if report is None:
+        return False, "Report not found."
+
+    if report["status"] == "Resolved":
+        return False, "Archived reports cannot be dispatched. Reopen it first."
+
+    if report["sent_to_officials"]:
+        return False, "This report was already marked as sent in the simulation."
+
+    recipients = [r for r in recipients if r in DISPATCH_RECIPIENTS]
+
+    if not recipients:
+        return False, "Select at least one official or agency first."
+
+    text = ", ".join(recipients)
+    report["sent_to_officials"] = text
+    report["sent_to_officials_at"] = now_text()
+    add_history(report, f"SIMULATED response dispatch to {text}")
+
+    return True, text
+
+
+def filter_reports(mode, text="", rtype="", status="", org="", date=""):
+    """mode: 'active', 'archive' or 'all'. Newest first."""
+    text = text.lower().strip()
+    result = []
+
+    for r in EMERGENCY_REPORTS:
+        resolved = r["status"] == "Resolved"
+
+        if mode == "active" and resolved:
+            continue
+        if mode == "archive" and not resolved:
+            continue
+        if rtype and r["emergency"] != rtype:
+            continue
+        if status and r["status"] != status:
+            continue
+        if org and r["assigned_organization"] != org:
+            continue
+        if date and not r["submitted_iso"].startswith(date):
+            continue
+        if text:
+            haystack = " ".join(
+                str(r[k]) for k in (
+                    "report_id", "name", "barangay", "location",
+                    "emergency", "description", "response_notes",
+                    "assigned_organization"
+                )
+            ).lower()
+            if text not in haystack:
+                continue
+
+        result.append(r)
+
+    result.sort(
+        key=lambda r: (r["submitted_iso"], r["report_id"]), reverse=True
+    )
+    return result
+
+
+def org_contact(org):
+    """Contact number from the existing HOTLINES list only (never invented)."""
+    if org == UNASSIGNED:
+        return "-"
+
+    name = ORG_HOTLINE_NAME.get(org)
+
+    for hotline_name, number in HOTLINES:
+        if hotline_name == name:
+            return number
+
+    return "No contact listed"
+
+
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
+
+def clear_frame(frame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+
+
+BUTTON_HOVER = {
+    BLUE: DARK_BLUE,
+    RED: LIGHT_RED,
+    GREEN: "#1B5E20",
+    GRAY: "#444444"
+}
+
+
+def make_button(parent, text, command, bg=BLUE, fg=WHITE):
+    return tk.Button(
+        parent,
+        text=text,
+        command=command,
+        font=("Arial", 11, "bold"),
+        bg=bg,
+        fg=fg,
+        activebackground=BUTTON_HOVER.get(bg, DARK_BLUE),
+        activeforeground=WHITE,
+        relief="flat",
+        bd=0,
+        padx=14,
+        pady=8,
+        cursor="hand2"
+    )
+
+
+# Typography system (sizes taken from the existing screens)
+FONT_PAGE_TITLE = ("Arial", 25, "bold")
+FONT_SECTION = ("Arial", 17, "bold")
+FONT_CARD_TITLE = ("Arial", 14, "bold")
+FONT_BODY = ("Arial", 12)
+FONT_SMALL = ("Arial", 10)
+
+PHASE_COLORS = {
+    "BEFORE": BLUE,
+    "DURING": RED,
+    "AFTER": GREEN
+}
+
+
+def disaster_label(name, opened=False):
+    return "  " + name
+
+
+def status_badge(parent, status):
+    """Small coloured label showing a report status."""
+    return tk.Label(
+        parent,
+        text=status.upper(),
+        font=("Arial", 9, "bold"),
+        bg=STATUS_COLORS.get(status, GRAY),
+        fg=WHITE,
+        padx=8,
+        pady=2
+    )
+
+
+def make_card(parent, bg=WHITE, padx=16, pady=14):
+    return tk.Frame(
+        parent,
+        bg=bg,
+        padx=padx,
+        pady=pady,
+        highlightbackground=BORDER,
+        highlightthickness=1
+    )
+
+
+def section_heading(parent, text, color=BLUE, bg=BACKGROUND):
+    row = tk.Frame(parent, bg=bg)
+
+    tk.Label(
+        row, text=text, font=FONT_SECTION, bg=bg, fg=color
+    ).pack(side="left")
+
+    tk.Frame(row, height=2, bg=BORDER).pack(
+        side="left", fill="x", expand=True, padx=(12, 0), pady=(8, 0)
+    )
+
+    return row
+
+
+def icon_tile(parent, symbol, color, bg=WHITE, size=46):
+    """Round coloured icon (Unicode symbol drawn on a Canvas)."""
+    canvas = tk.Canvas(
+        parent, width=size, height=size, bg=bg, highlightthickness=0
+    )
+    canvas.create_oval(2, 2, size - 2, size - 2, fill=color, outline=color)
+    canvas.create_text(
+        size / 2, size / 2, text=symbol, fill=WHITE,
+        font=("Arial", int(size * 0.4), "bold")
+    )
+    return canvas
+
+
+def walk_widgets(widget):
+    yield widget
+    for child in widget.winfo_children():
+        yield from walk_widgets(child)
+
+
+def format_capacity(value):
+    """Capacity is a number of persons; older text values are shown as-is."""
+    value = str(value).strip()
+    return f"{value} persons" if value.isdigit() else (value or "-")
+
+
+def make_clickable(card, command, normal=WHITE, hover=LIGHT_BLUE):
+    """Make a whole card (and everything inside it) clickable with hover."""
+    def paint(color):
+        for widget in walk_widgets(card):
+            try:
+                widget.config(bg=color)
+            except tk.TclError:
+                pass
+
+    def on_leave(event):
+        x, y = card.winfo_pointerxy()
+        inside = card.winfo_containing(x, y)
+
+        if inside is None or inside not in set(walk_widgets(card)):
+            paint(normal)
+
+    for widget in walk_widgets(card):
+        widget.config(cursor="hand2")
+        widget.bind("<Button-1>", lambda e: command())
+        widget.bind("<Enter>", lambda e: paint(hover))
+        widget.bind("<Leave>", on_leave)
+
+
+def auto_wrap(label, padding=6):
+    """Makes a label re-wrap its text whenever its width changes."""
+    label.bind(
+        "<Configure>",
+        lambda e: label.config(wraplength=max(e.width - padding, 80))
+    )
+
+
+def wrap_to_width(label, max_width=1100, padding=6):
+    """Wrap text to the label's width, but never wider than max_width."""
+    label.bind(
+        "<Configure>",
+        lambda e: label.config(
+            wraplength=max(min(e.width - padding, max_width), 80)
+        )
+    )
+
+
+def make_grid(parent, columns=2):
+    """Frame whose columns share the width equally (card layout)."""
+    grid = tk.Frame(parent, bg=BACKGROUND)
+    grid.pack(fill="x")
+
+    for c in range(columns):
+        grid.grid_columnconfigure(c, weight=1, uniform="cards")
+
+    return grid
+
+
+def place_card(widget, index, columns=2):
+    row, col = divmod(index, columns)
+    widget.grid(
+        row=row,
+        column=col,
+        sticky="nsew",
+        padx=(0 if col == 0 else 6, 0 if col == columns - 1 else 6),
+        pady=6
+    )
+
+
+def page_title(parent, title, subtitle, color=BLUE):
+    tk.Label(
+        parent,
+        text=title,
+        font=("Arial", 25, "bold"),
+        bg=BACKGROUND,
+        fg=color
+    ).pack(anchor="w")
+
+    if subtitle:
+        label = tk.Label(
+            parent,
+            text=subtitle,
+            font=("Arial", 11),
+            bg=BACKGROUND,
+            fg=GRAY,
+            justify="left",
+            anchor="w"
+        )
+        label.pack(fill="x", pady=(2, 12))
+        wrap_to_width(label, 1000)
+
+
+# =========================================================
+# MAIN APP
+# =========================================================
+
+class App(tk.Tk):
+
+    def __init__(self):
+        super().__init__()
+
+        self.title("iHANDA Dagupan")
+        self.option_add("*TCombobox*Listbox.font", ("Arial", 12))
+        self.geometry("1200x740")
+        self.minsize(1100, 620)
+        self.configure(bg=BACKGROUND)
+
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=30, font=("Arial", 10))
+        style.configure("Treeview.Heading", font=("Arial", 10, "bold"))
+
+        self.current_frame = None
+        self.admin_logged_in = False
+
+        self.frames = {}
+
+        container = tk.Frame(self, bg=BACKGROUND)
+        container.pack(fill="both", expand=True)
+
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        self.container = container
+
+        pages = (
+            HomeScreen,
+            DisasterScreen,
+            ReadyKitScreen,
+            HotlinesScreen,
+            FirstAidScreen,
+            EvacuationScreen,
+            EmergencyReportScreen,
+            AdminLoginScreen,
+            AdminScreen
+        )
+
+        for Page in pages:
+            frame = Page(container, self)
+            self.frames[Page.__name__] = frame
+            frame.grid(row=0, column=0, sticky="nsew")
+
+        self.bind_all("<MouseWheel>", self.global_scroll)
+
+        self.show_frame("HomeScreen")
+
+    # The admin session lives in ADMIN_SESSION so that protected
+    # functions can check it without needing a reference to the app.
+    @property
+    def admin_logged_in(self):
+        return ADMIN_SESSION["active"]
+
+    @admin_logged_in.setter
+    def admin_logged_in(self, value):
+        ADMIN_SESSION["active"] = bool(value)
+
+    def show_frame(self, page_name):
+        # Admin pages are protected: no session -> login screen.
+        if page_name == "AdminScreen" and not self.admin_logged_in:
+            page_name = "AdminLoginScreen"
+
+        frame = self.frames[page_name]
+        self.current_frame = frame
+        frame.tkraise()
+
+        if hasattr(frame, "reset_scroll"):
+            frame.reset_scroll()
+
+        if page_name in ("AdminScreen", "EvacuationScreen"):
+            frame.refresh()
+
+    def global_scroll(self, event):
+        # Ignore scrolling inside pop-up windows / dropdown lists
+        try:
+            if event.widget.winfo_toplevel() is not self:
+                return
+        except Exception:
+            pass
+
+        if self.current_frame and hasattr(
+            self.current_frame, "mouse_scroll"
+        ):
+            self.current_frame.mouse_scroll(event)
+
+
+# =========================================================
+# PUBLIC HEADER / NAVIGATION
+# (only used on public pages - never on the admin dashboard)
+# =========================================================
+
+NAV_BUTTONS = [
+    ("HOME", "HomeScreen"),
+    ("DISASTER\nRECOGNITION", "DisasterScreen"),
+    ("READY KIT", "ReadyKitScreen"),
+    ("HOTLINES", "HotlinesScreen"),
+    ("FIRST AID", "FirstAidScreen"),
+    ("EVACUATION", "EvacuationScreen"),
+    ("EMERGENCY\nREPORT", "EmergencyReportScreen")
+]
+
+
+def create_navigation(parent, controller, active_page):
+
+    header = tk.Frame(parent, height=96, bg=BLUE)
+    header.pack(fill="x")
+    header.pack_propagate(False)
+
+    # Blue section
+    left = tk.Frame(header, bg=BLUE)
+    left.pack(side="left", fill="y", padx=(22, 12))
+
+    tk.Label(
+        left,
+        text="iHANDA Dagupan",
+        font=("Arial", 21, "bold"),
+        bg=BLUE,
+        fg=WHITE
+    ).pack(anchor="w", pady=(24, 0))
+
+    tk.Label(
+        left,
+        text="Disaster Preparedness System",
+        font=("Arial", 10),
+        bg=BLUE,
+        fg=WHITE
+    ).pack(anchor="w")
+
+    # Red section
+    right = tk.Frame(header, bg=RED)
+    right.pack(side="right", fill="both", expand=True)
+
+    divider = tk.Canvas(
+        right,
+        width=28,
+        bg=RED,
+        highlightthickness=0
+    )
+    divider.pack(side="left", fill="y")
+
+    divider.create_polygon(
+        0, 0,
+        28, 0,
+        0, 96,
+        fill=BLUE,
+        outline=BLUE
+    )
+
+    nav = tk.Frame(right, bg=RED)
+    nav.pack(side="left", fill="both", expand=True, padx=(4, 10))
+
+    def nav_button(text, page, active):
+        return tk.Button(
+            nav,
+            text=text,
+            command=page,
+            font=("Arial", 11, "bold"),
+            bg=WHITE if active else RED,
+            fg=RED if active else WHITE,
+            activebackground=WHITE,
+            activeforeground=RED,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=8,
+            cursor="hand2"
+        )
+
+    # Buttons share the available width, so labels are never cut off.
+    for text, page in NAV_BUTTONS:
+        nav_button(
+            text,
+            lambda p=page: controller.show_frame(p),
+            page == active_page
+        ).pack(side="left", fill="both", expand=True, padx=3, pady=16)
+
+    tk.Frame(
+        nav,
+        width=2,
+        bg=WHITE
+    ).pack(side="left", fill="y", pady=22, padx=8)
+
+    admin_button = nav_button(
+        "ADMIN\nLOGIN",
+        lambda: controller.show_frame(
+            "AdminScreen" if controller.admin_logged_in
+            else "AdminLoginScreen"
+        ),
+        active_page == "AdminLoginScreen"
+    )
+
+    if active_page != "AdminLoginScreen":
+        admin_button.config(
+            bg=DARK_BLUE, fg=WHITE,
+            activebackground=BLUE, activeforeground=WHITE
+        )
+
+    admin_button.pack(
+        side="left", fill="both", expand=True, padx=3, pady=16
+    )
+
+
+def create_footer(parent):
+    footer = tk.Frame(parent, bg=DARK_BLUE, height=34)
+    footer.pack(side="bottom", fill="x")
+    footer.pack_propagate(False)
+
+    tk.Label(
+        footer,
+        text="© 2026 iHANDA Dagupan | Disaster Preparedness for Dagupan City",
+        font=("Arial", 8),
+        bg=DARK_BLUE,
+        fg=WHITE
+    ).pack(pady=8)
+
+
+# =========================================================
+# BASE SCROLLABLE FRAME
+# (scrollbar only appears when the content doesn't fit)
+# =========================================================
+
+class ScrollPage(tk.Frame):
+
+    def setup_scroll(self, parent=None):
+        area = tk.Frame(parent or self, bg=BACKGROUND)
+        area.pack(fill="both", expand=True, padx=30, pady=16)
+
+        self.scroll_needed = True
+
+        self.canvas = tk.Canvas(
+            area,
+            bg=BACKGROUND,
+            highlightthickness=0
+        )
+
+        self.scrollbar = ttk.Scrollbar(
+            area,
+            orient="vertical",
+            command=self.canvas.yview
+        )
+
+        self.content = tk.Frame(
+            self.canvas,
+            bg=BACKGROUND
+        )
+
+        self.window_id = self.canvas.create_window(
+            (0, 0),
+            window=self.content,
+            anchor="nw"
+        )
+
+        self.content.bind("<Configure>", self.update_scroll_region)
+        self.canvas.bind("<Configure>", self.on_canvas_configure)
+
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+    def on_canvas_configure(self, event):
+        self.canvas.itemconfig(self.window_id, width=event.width)
+        self.update_scroll_region()
+
+    def update_scroll_region(self, event=None):
+        bbox = self.canvas.bbox("all")
+
+        if not bbox:
+            return
+
+        self.canvas.configure(scrollregion=bbox)
+
+        needed = (bbox[3] - bbox[1]) > self.canvas.winfo_height()
+
+        if needed != self.scroll_needed:
+            self.scroll_needed = needed
+
+            if needed:
+                self.scrollbar.pack(side="right", fill="y")
+            else:
+                self.scrollbar.pack_forget()
+                self.canvas.yview_moveto(0)
+
+    def mouse_scroll(self, event):
+        if not self.scroll_needed:
+            return
+
+        self.canvas.yview_scroll(
+            int(-event.delta / 120),
+            "units"
+        )
+
+    def reset_scroll(self):
+        self.canvas.yview_moveto(0)
+        # re-check whether the scrollbar is needed once the page is shown
+        self.after(40, self.update_scroll_region)
+
+
+# =========================================================
+# HOME
+# =========================================================
+
+class HomeScreen(ScrollPage):
+
+    FEATURES = [
+        (
+            "Disaster Recognition",
+            "Learn about floods, earthquakes, fires, and tsunamis, "
+            "including warning signs and safety measures."
+        ),
+        (
+            "Ready Kit",
+            "See what to prepare before an emergency and which supplies "
+            "belong in an emergency kit."
+        ),
+        (
+            "Evacuation Areas",
+            "Identify safe areas and evacuation locations that may be "
+            "used during emergencies."
+        ),
+        (
+            "Emergency Hotlines",
+            "Access important emergency contact information for "
+            "assistance during disasters."
+        ),
+        (
+            "First Aid",
+            "Review basic first aid steps to follow while waiting for "
+            "professional help."
+        ),
+        (
+            "Emergency Reporting",
+            "Provide information about urgent situations so that proper "
+            "authorities or responders can be informed."
+        ),
+        (
+            "Emergency Responses",
+            "View and manage submitted emergency reports "
+            "(administrators only)."
+        )
+    ]
+
+    QUICK_ACCESS = [
+        ("Emergency Reporting", "EmergencyReportScreen", "!", RED),
+        ("Evacuation Areas", "EvacuationScreen", "⌂", BLUE),
+        ("Emergency Hotlines", "HotlinesScreen", "☎", RED),
+        ("Ready Kit", "ReadyKitScreen", "✚", BLUE),
+        ("First Aid", "FirstAidScreen", "✚", GREEN),
+        ("Disaster Recognition", "DisasterScreen", "≈", BLUE)
+    ]
+
+    TIPS = [
+        ("Know your route",
+         "Know your family's evacuation area and route before a disaster."),
+        ("Prepare your kit",
+         "Keep drinking water, food, a flashlight, and first aid supplies ready."),
+        ("Follow official warnings",
+         "Monitor weather conditions and follow instructions from authorities.")
+    ]
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        self.controller = controller
+
+        create_navigation(self, controller, "HomeScreen")
+        create_footer(self)
+        self.setup_scroll()
+
+        self.build_hero()
+        self.build_quick_access()
+        self.build_reminders()
+
+    # ---------- hero ----------
+    def build_hero(self):
+        hero = tk.Frame(self.content, bg=BLUE, padx=30, pady=24)
+        hero.pack(fill="x", pady=(4, 14))
+
+        hotline = tk.Frame(hero, bg=RED, padx=24, pady=16)
+        hotline.pack(side="right", anchor="n", padx=(20, 0))
+
+        tk.Label(
+            hotline, text="IN AN EMERGENCY CALL", font=("Arial", 10, "bold"),
+            bg=RED, fg=WHITE
+        ).pack()
+        tk.Label(
+            hotline, text="911", font=("Arial", 36, "bold"),
+            bg=RED, fg=WHITE
+        ).pack()
+        tk.Label(
+            hotline, text="National Emergency Hotline",
+            font=("Arial", 10), bg=RED, fg=WHITE
+        ).pack()
+
+        left = tk.Frame(hero, bg=BLUE)
+        left.pack(side="left", fill="x", expand=True)
+
+        tk.Label(
+            left, text="DAGUPAN CITY DISASTER PREPAREDNESS",
+            font=("Arial", 10, "bold"), bg=BLUE, fg=LIGHT_BLUE
+        ).pack(anchor="w")
+
+        tk.Label(
+            left, text="Welcome to iHANDA Dagupan",
+            font=("Arial", 30, "bold"), bg=BLUE, fg=WHITE
+        ).pack(anchor="w", pady=(4, 6))
+
+        intro = tk.Label(
+            left,
+            text=(
+                "iHANDA Dagupan is a community-based disaster preparedness "
+                "information system designed to help residents of Dagupan "
+                "City become more informed and prepared for disasters. "
+                "It helps residents stay informed, prepared, and safe "
+                "before, during, and after disasters."
+            ),
+            font=("Arial", 14), bg=BLUE, fg=WHITE,
+            justify="left", anchor="w"
+        )
+        intro.pack(fill="x")
+        wrap_to_width(intro, 800)
+
+        buttons = tk.Frame(left, bg=BLUE)
+        buttons.pack(anchor="w", pady=(16, 0))
+
+        make_button(
+            buttons, "REPORT AN EMERGENCY",
+            lambda: self.controller.show_frame("EmergencyReportScreen"),
+            bg=RED
+        ).pack(side="left")
+
+        make_button(
+            buttons, "VIEW EVACUATION AREAS",
+            lambda: self.controller.show_frame("EvacuationScreen"),
+            bg=WHITE, fg=BLUE
+        ).pack(side="left", padx=10)
+
+    # ---------- quick access ----------
+    def build_quick_access(self):
+        section_heading(self.content, "Quick Access").pack(
+            fill="x", pady=(4, 8)
+        )
+
+        grid = tk.Frame(self.content, bg=BACKGROUND)
+        grid.pack(fill="x")
+
+        for c in range(3):
+            grid.grid_columnconfigure(c, weight=1, uniform="quick")
+
+        descriptions = dict(self.FEATURES)
+
+        for i, (title, page, symbol, color) in enumerate(self.QUICK_ACCESS):
+            card = make_card(grid, padx=16, pady=14)
+            card.grid(
+                row=i // 3, column=i % 3, sticky="nsew",
+                padx=(0 if i % 3 == 0 else 6, 0 if i % 3 == 2 else 6),
+                pady=6
+            )
+
+            top = tk.Frame(card, bg=WHITE)
+            top.pack(fill="x")
+
+            icon_tile(top, symbol, color).pack(side="left")
+
+            tk.Label(
+                top, text=title, font=FONT_CARD_TITLE,
+                bg=WHITE, fg=BLUE, anchor="w"
+            ).pack(side="left", padx=12)
+
+            text = tk.Label(
+                card, text=descriptions.get(title, ""),
+                font=("Arial", 12), bg=WHITE, fg=TEXT,
+                justify="left", anchor="w"
+            )
+            text.pack(fill="x", pady=(10, 0))
+            wrap_to_width(text, 500)
+
+            make_clickable(card, lambda p=page: self.controller.show_frame(p))
+
+    # ---------- reminders ----------
+    def build_reminders(self):
+        notice = tk.Frame(self.content, bg=LIGHT_BLUE, padx=26, pady=18)
+        notice.pack(fill="x", pady=(10, 6))
+
+        tk.Label(
+            notice, text="Be Prepared. Stay Safe.",
+            font=("Arial", 22, "bold"), bg=LIGHT_BLUE, fg=RED
+        ).pack(anchor="w")
+
+        message = tk.Label(
+            notice,
+            text=(
+                "Disasters can happen unexpectedly. Being prepared, "
+                "following official warnings, knowing evacuation routes, "
+                "and having an emergency kit can help reduce risks and "
+                "protect individuals, families, and communities."
+            ),
+            font=("Arial", 13), bg=LIGHT_BLUE, fg=TEXT,
+            justify="left", anchor="w"
+        )
+        message.pack(fill="x", pady=(6, 10))
+        wrap_to_width(message, 1000)
+
+        tips = tk.Frame(notice, bg=LIGHT_BLUE)
+        tips.pack(fill="x")
+
+        for c in range(3):
+            tips.grid_columnconfigure(c, weight=1, uniform="tips")
+
+        for c, (title, text) in enumerate(self.TIPS):
+            tip = tk.Frame(tips, bg=WHITE, padx=14, pady=10)
+            tip.grid(
+                row=0, column=c, sticky="nsew",
+                padx=(0 if c == 0 else 5, 0 if c == 2 else 5)
+            )
+
+            tk.Label(
+                tip, text="✔  " + title, font=("Arial", 12, "bold"),
+                bg=WHITE, fg=GREEN, anchor="w"
+            ).pack(fill="x")
+
+            label = tk.Label(
+                tip, text=text, font=("Arial", 11), bg=WHITE, fg=TEXT,
+                justify="left", anchor="w"
+            )
+            label.pack(fill="x", pady=(3, 0))
+            wrap_to_width(label, 400)
+
+        tk.Label(
+            self.content,
+            text="Administrators: " + self.FEATURES[-1][1][0].lower()
+                 + self.FEATURES[-1][1][1:] + " Use ADMIN LOGIN to continue.",
+            font=("Arial", 10, "italic"), bg=BACKGROUND, fg=GRAY,
+            anchor="w"
+        ).pack(fill="x", pady=(4, 0))
+
+
+# =========================================================
+# DISASTER RECOGNITION
+# =========================================================
+
+class DisasterScreen(ScrollPage):
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        create_navigation(self, controller, "DisasterScreen")
+        create_footer(self)
+        self.setup_scroll()
+
+        page_title(
+            self.content,
+            "Disaster Recognition",
+            "Click a disaster to show or hide its information."
+        )
+
+        self.cards = {}
+
+        for name in DISASTERS:
+            self.create_disaster_card(name)
+
+    def create_disaster_card(self, name):
+        outer = tk.Frame(
+            self.content,
+            bg=WHITE,
+            highlightbackground=BORDER,
+            highlightthickness=1
+        )
+        outer.pack(fill="x", pady=5)
+
+        button = tk.Button(
+            outer,
+            text=disaster_label(name),
+            anchor="w",
+            font=("Arial", 12, "bold"),
+            bg=WHITE,
+            fg=BLUE,
+            activebackground=LIGHT_BLUE,
+            activeforeground=BLUE,
+            relief="flat",
+            bd=0,
+            padx=12,
+            pady=13,
+            cursor="hand2",
+            command=lambda n=name: self.toggle_disaster(n)
+        )
+        button.pack(fill="x")
+
+        info = tk.Frame(
+            outer,
+            bg=WHITE,
+            padx=18,
+            pady=12
+        )
+
+        self.cards[name] = {
+            "info": info,
+            "button": button,
+            "open": False
+        }
+
+    def toggle_disaster(self, name):
+        data = DISASTERS[name]
+        card = self.cards[name]
+
+        if card["open"]:
+            card["info"].pack_forget()
+            card["open"] = False
+            card["button"].config(text=disaster_label(name))
+            return
+
+        clear_frame(card["info"])
+
+        desc = tk.Label(
+            card["info"],
+            text=data["description"],
+            font=("Arial", 13),
+            bg=WHITE,
+            fg=TEXT,
+            justify="left",
+            anchor="w"
+        )
+        desc.pack(fill="x", pady=(0, 8))
+        wrap_to_width(desc, 1000)
+
+        # Before / During / After side by side to use the full width
+        columns = tk.Frame(card["info"], bg=WHITE)
+        columns.pack(fill="x")
+
+        for c in range(3):
+            columns.grid_columnconfigure(c, weight=1, uniform="phase")
+
+        for c, (title, key) in enumerate([
+            ("BEFORE", "before"),
+            ("DURING", "during"),
+            ("AFTER", "after")
+        ]):
+            col = tk.Frame(columns, bg=WHITE)
+            col.grid(row=0, column=c, sticky="new", padx=8)
+
+            tk.Label(
+                col,
+                text=title,
+                font=("Arial", 14, "bold"),
+                bg=PHASE_COLORS[title],
+                fg=WHITE,
+                anchor="w",
+                padx=10,
+                pady=4
+            ).pack(fill="x", pady=(0, 6))
+
+            for item in data[key]:
+                label = tk.Label(
+                    col,
+                    text="• " + item,
+                    font=("Arial", 13),
+                    bg=WHITE,
+                    fg=TEXT,
+                    justify="left",
+                    anchor="w"
+                )
+                label.pack(fill="x", pady=2)
+                wrap_to_width(label, 500)
+
+        tk.Label(
+            card["info"],
+            text="Source: " + data["source"],
+            font=("Arial", 10, "italic"),
+            bg=WHITE,
+            fg=GRAY
+        ).pack(anchor="w", pady=(10, 0))
+
+        card["info"].pack(fill="x")
+        card["open"] = True
+        card["button"].config(text=disaster_label(name, True))
+
+
+# =========================================================
+# READY KIT  (card / grid layout)
+# =========================================================
+
+class ReadyKitScreen(ScrollPage):
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        create_navigation(self, controller, "ReadyKitScreen")
+        create_footer(self)
+        self.setup_scroll()
+
+        page_title(
+            self.content,
+            "Emergency Ready Kit",
+            "Check the items that should be prepared for each emergency."
+        )
+
+        grid = tk.Frame(self.content, bg=BACKGROUND)
+        grid.pack(fill="x")
+
+        grid.grid_columnconfigure(0, weight=1, uniform="kit")
+        grid.grid_columnconfigure(1, weight=1, uniform="kit")
+
+        categories = list(KIT_ITEMS.items())
+
+        # General kit: full width on top, items in 3 columns
+        general_title, general_items = categories[0]
+        self.make_kit_card(
+            grid, general_title, general_items, columns=3
+        ).grid(row=0, column=0, columnspan=2, sticky="nsew", pady=6)
+
+        # Disaster-specific kits: 2 cards per row
+        for i, (title, items) in enumerate(categories[1:]):
+            self.make_kit_card(
+                grid, title, items, columns=2
+            ).grid(
+                row=1 + i // 2,
+                column=i % 2,
+                sticky="nsew",
+                padx=(0, 6) if i % 2 == 0 else (6, 0),
+                pady=6
+            )
+
+    def make_kit_card(self, parent, title, items, columns):
+        card = tk.Frame(
+            parent,
+            bg=WHITE,
+            padx=16,
+            pady=14,
+            highlightbackground=BORDER,
+            highlightthickness=1
+        )
+
+        header = tk.Frame(card, bg=WHITE)
+        header.pack(fill="x", pady=(0, 6))
+
+        tk.Label(
+            header,
+            text=title,
+            font=("Arial", 15, "bold"),
+            bg=WHITE,
+            fg=BLUE if title == "General Emergency Kit" else RED
+        ).pack(side="left")
+
+        counter = tk.Label(
+            header,
+            text=f"0 / {len(items)} packed  •  0%",
+            font=("Arial", 10, "bold"),
+            bg=WHITE,
+            fg=GRAY
+        )
+        counter.pack(side="right")
+
+        # progress bar (drawn on a Canvas)
+        bar = tk.Canvas(
+            card, height=8, bg=BORDER, highlightthickness=0
+        )
+        bar.pack(fill="x", pady=(0, 10))
+
+        chips = tk.Frame(card, bg=WHITE)
+        chips.pack(fill="x")
+
+        for c in range(columns):
+            chips.grid_columnconfigure(c, weight=1, uniform="chip")
+
+        variables = []
+
+        def draw_bar(event=None):
+            bar.delete("all")
+            done = sum(1 for v in variables if v.get())
+            width = bar.winfo_width()
+            filled = int(width * done / len(items)) if items else 0
+            bar.create_rectangle(
+                0, 0, filled, 8, width=0,
+                fill=GREEN if done == len(items) else BLUE
+            )
+
+        def update():
+            done = sum(1 for v in variables if v.get())
+            percent = round(100 * done / len(items)) if items else 0
+            counter.config(
+                text=f"{done} / {len(items)} packed  •  {percent}%",
+                fg=GREEN if done == len(items) else GRAY
+            )
+            draw_bar()
+
+        bar.bind("<Configure>", draw_bar)
+
+        for i, item in enumerate(items):
+            var = tk.BooleanVar()
+            variables.append(var)
+
+            chip = tk.Frame(
+                chips,
+                bg=WHITE,
+                highlightbackground="#AAB7C8",
+                highlightthickness=1,
+                bd=0
+            )
+            chip.grid(
+                row=i // columns,
+                column=i % columns,
+                sticky="nsew",
+                padx=4,
+                pady=4
+            )
+
+            tk.Checkbutton(
+                chip,
+                text=item,
+                variable=var,
+                command=update,
+                font=("Arial", 11),
+                bg=WHITE,
+                fg=TEXT,
+                activebackground=WHITE,
+                selectcolor=LIGHT_BLUE,
+                anchor="w",
+                justify="left",
+                indicatoron=True,
+                padx=10,
+                pady=10,
+                cursor="hand2"
+            ).pack(fill="x")
+
+        return card
+
+
+# =========================================================
+# HOTLINES
+# =========================================================
+
+class HotlinesScreen(ScrollPage):
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        create_navigation(self, controller, "HotlinesScreen")
+        create_footer(self)
+        self.setup_scroll()
+
+        page_title(
+            self.content,
+            "Emergency Hotlines",
+            "DAGUPAN CITY",
+            color=RED
+        )
+
+        grid = make_grid(self.content, 2)
+
+        for i, (office, number) in enumerate(HOTLINES):
+            place_card(self.make_hotline(grid, office, number), i)
+
+    def make_hotline(self, parent, office, number):
+        card = tk.Frame(
+            parent,
+            bg=WHITE,
+            padx=16,
+            pady=14,
+            highlightbackground=BORDER,
+            highlightthickness=1
+        )
+
+        icon_tile(card, "☎", RED if office.startswith("NATIONAL") else BLUE
+                  ).pack(side="left", anchor="n", padx=(0, 14))
+
+        # Button first so it keeps its space when the window is narrow
+        make_button(
+            card,
+            "CALL",
+            lambda n=number: self.call_number(n),
+            bg=RED
+        ).pack(side="right", padx=(8, 0))
+
+        left = tk.Frame(card, bg=WHITE)
+        left.pack(side="left", fill="x", expand=True)
+
+        name = tk.Label(
+            left,
+            text=office,
+            font=("Arial", 11, "bold"),
+            bg=WHITE,
+            fg=BLUE,
+            anchor="w",
+            justify="left"
+        )
+        name.pack(fill="x")
+        wrap_to_width(name, 500)
+
+        tk.Label(
+            left,
+            text=number,
+            font=("Arial", 16, "bold"),
+            bg=WHITE,
+            fg=RED,
+            anchor="w"
+        ).pack(anchor="w", pady=(3, 0))
+
+        return card
+
+    def call_number(self, number):
+        clean = number.split("/")[0].strip()
+
+        try:
+            import webbrowser
+            webbrowser.open("tel:" + clean)
+        except Exception:
+            messagebox.showinfo(
+                "Emergency Hotline",
+                "Please call:\n\n" + number
+            )
+
+
+# =========================================================
+# FIRST AID
+# =========================================================
+
+class FirstAidScreen(ScrollPage):
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        create_navigation(self, controller, "FirstAidScreen")
+        create_footer(self)
+        self.setup_scroll()
+
+        page_title(
+            self.content,
+            "First Aid Procedure",
+            "Basic emergency response guidance. Contact emergency "
+            "responders for serious injuries."
+        )
+
+        banner = tk.Frame(self.content, bg="#FDECEA", padx=18, pady=10,
+                          highlightbackground=LIGHT_RED, highlightthickness=1)
+        banner.pack(fill="x", pady=(0, 10))
+
+        warning = tk.Label(
+            banner,
+            text=(
+                "⚠  SAFETY FIRST: check that the area is safe before helping, "
+                "and call 911 or the Emergency Hotlines for serious injuries."
+            ),
+            font=("Arial", 11, "bold"), bg="#FDECEA", fg=RED,
+            justify="left", anchor="w"
+        )
+        warning.pack(fill="x")
+        wrap_to_width(warning, 1000)
+
+        grid = make_grid(self.content, 2)
+
+        for i, (title, text) in enumerate(FIRST_AID):
+            box = tk.Frame(
+                grid,
+                bg=WHITE,
+                padx=16,
+                pady=14,
+                highlightbackground=BORDER,
+                highlightthickness=1
+            )
+            place_card(box, i)
+
+            tk.Label(
+                box,
+                text=str(i + 1),
+                font=("Arial", 13, "bold"),
+                bg=RED,
+                fg=WHITE,
+                width=3,
+                pady=5
+            ).pack(side="left", anchor="n", padx=(0, 14))
+
+            detail = tk.Frame(box, bg=WHITE)
+            detail.pack(side="left", fill="x", expand=True)
+
+            tk.Label(
+                detail,
+                text=title,
+                font=("Arial", 12, "bold"),
+                bg=WHITE,
+                fg=BLUE,
+                anchor="w"
+            ).pack(fill="x")
+
+            body = tk.Label(
+                detail,
+                text=text,
+                font=("Arial", 10),
+                bg=WHITE,
+                fg=TEXT,
+                justify="left",
+                anchor="w"
+            )
+            body.pack(fill="x", pady=(4, 0))
+            wrap_to_width(body, 600)
+
+        source = tk.Frame(
+            self.content,
+            bg=LIGHT_BLUE,
+            padx=18,
+            pady=12
+        )
+        source.pack(fill="x", pady=12)
+
+        note = tk.Label(
+            source,
+            text=(
+                "SOURCE: World Health Organization (WHO) & International "
+                "Committee of the Red Cross (ICRC). Basic Emergency Care: "
+                "Approach to the Acutely Ill and Injured."
+            ),
+            font=("Arial", 9, "italic"),
+            bg=LIGHT_BLUE,
+            fg=GRAY,
+            justify="left",
+            anchor="w"
+        )
+        note.pack(fill="x")
+        wrap_to_width(note, 1000)
+
+
+# =========================================================
+# EVACUATION AREA - USER VIEW
+# =========================================================
+
+class EvacuationScreen(ScrollPage):
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        self.controller = controller
+
+        create_navigation(self, controller, "EvacuationScreen")
+        create_footer(self)
+        self.setup_scroll()
+
+        page_title(
+            self.content,
+            "Evacuation Areas",
+            "View available evacuation locations. Always follow the "
+            "latest instructions from local authorities."
+        )
+
+        self.list_frame = tk.Frame(
+            self.content,
+            bg=BACKGROUND
+        )
+        self.list_frame.pack(fill="x")
+
+        self.refresh()
+
+    def refresh(self):
+        if not hasattr(self, "list_frame"):
+            return
+
+        clear_frame(self.list_frame)
+
+        if not EVACUATION_AREAS:
+            tk.Label(
+                self.list_frame,
+                text="No evacuation areas currently listed.",
+                font=("Arial", 12),
+                bg=WHITE,
+                fg=GRAY,
+                padx=20,
+                pady=20
+            ).pack(fill="x")
+            return
+
+        grid = make_grid(self.list_frame, 2)
+
+        for i, item in enumerate(EVACUATION_AREAS):
+            box = make_card(grid, padx=0, pady=0)
+            place_card(box, i)
+
+            header = tk.Frame(box, bg=BLUE, padx=16, pady=10)
+            header.pack(fill="x")
+
+            tk.Label(
+                header,
+                text="CAPACITY: " + format_capacity(item.get("capacity", "")).upper(),
+                font=("Arial", 9, "bold"),
+                bg=WHITE,
+                fg=BLUE,
+                padx=8,
+                pady=2
+            ).pack(side="right", anchor="n", padx=(8, 0))
+
+            name = tk.Label(
+                header,
+                text=item["name"],
+                font=("Arial", 14, "bold"),
+                bg=BLUE,
+                fg=WHITE,
+                anchor="w",
+                justify="left"
+            )
+            name.pack(side="left", fill="x", expand=True)
+            wrap_to_width(name, 500)
+
+            body = tk.Frame(box, bg=WHITE, padx=16, pady=12)
+            body.pack(fill="both", expand=True)
+
+            for label, value in (
+                ("Barangay", item.get("barangay", "")),
+                ("Address", item.get("location", "")),
+                ("Capacity", format_capacity(item.get("capacity", ""))),
+                ("Notes", item.get("notes", ""))
+            ):
+                row = tk.Frame(body, bg=WHITE)
+                row.pack(fill="x", pady=3)
+
+                tk.Label(
+                    row,
+                    text=label,
+                    font=("Arial", 11, "bold"),
+                    bg=WHITE,
+                    fg=GRAY,
+                    width=9,
+                    anchor="nw"
+                ).pack(side="left", anchor="n")
+
+                text = tk.Label(
+                    row,
+                    text=value or "-",
+                    font=("Arial", 13),
+                    bg=WHITE,
+                    fg=TEXT,
+                    justify="left",
+                    anchor="w"
+                )
+                text.pack(side="left", fill="x", expand=True)
+                wrap_to_width(text, 600)
+
+
+# =========================================================
+# EMERGENCY REPORT
+# =========================================================
+
+class EmergencyReportScreen(ScrollPage):
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        self.controller = controller
+        self.photo_path = ""
+        self._sending = False
+
+        create_navigation(self, controller, "EmergencyReportScreen")
+        create_footer(self)
+        self.setup_scroll()
+
+        tk.Label(
+            self.content,
+            text="Emergency Report",
+            font=("Arial", 25, "bold"),
+            bg=BACKGROUND,
+            fg=RED
+        ).pack(anchor="w")
+
+        note = tk.Frame(self.content, bg=BACKGROUND)
+        note.pack(anchor="w", pady=(3, 8))
+
+        tk.Label(
+            note,
+            text="Provide accurate information about the emergency. "
+                 "Fields marked with ",
+            font=("Arial", 13),
+            bg=BACKGROUND,
+            fg=GRAY
+        ).pack(side="left")
+
+        tk.Label(
+            note,
+            text="*",
+            font=("Arial", 14, "bold"),
+            bg=BACKGROUND,
+            fg=RED
+        ).pack(side="left")
+
+        tk.Label(
+            note,
+            text=" are required.",
+            font=("Arial", 13),
+            bg=BACKGROUND,
+            fg=GRAY
+        ).pack(side="left")
+
+        # Honest notice about what "Send Report" does
+        notice = tk.Frame(self.content, bg=LIGHT_BLUE, padx=14, pady=8)
+        notice.pack(fill="x", pady=(0, 10))
+
+        notice_text = tk.Label(
+            notice,
+            text=(
+                "Your report is saved in this system for administrators to "
+                "review. It is not automatically sent to any organization. "
+                "For urgent emergencies, call 911 or the Emergency "
+                "Hotlines right away."
+            ),
+            font=("Arial", 11),
+            bg=LIGHT_BLUE,
+            fg=TEXT,
+            justify="left",
+            anchor="w"
+        )
+        notice_text.pack(fill="x")
+        wrap_to_width(notice_text, 1000)
+
+        form = tk.Frame(
+            self.content,
+            bg=WHITE,
+            padx=22,
+            pady=16,
+            highlightbackground=BORDER,
+            highlightthickness=1
+        )
+        form.pack(fill="x")
+
+        form.grid_columnconfigure(0, weight=1, uniform="f")
+        form.grid_columnconfigure(1, weight=1, uniform="f")
+
+        # Validators (restrict what can be typed)
+        self.v_name = (self.register(self.valid_name), "%P")
+        self.v_contact = (self.register(self.valid_contact), "%P")
+        self.v_location = (self.register(self.valid_location), "%P")
+        self.v_barangay = (self.register(self.valid_barangay), "%P")
+
+        self.form_heading(form, 0, "1.  Reporter Information")
+        self.form_heading(form, 2, "2.  Incident Details")
+        self.form_heading(form, 6, "3.  Photo Evidence (optional)")
+
+        # Row 1: Name | Contact
+        self.name = self.field(
+            self.cell(form, 1, 0, "Name"), self.v_name
+        )
+        self.contact = self.field(
+            self.cell(form, 1, 1, "Contact Number"), self.v_contact
+        )
+
+        # Row 1: Barangay | Emergency type
+        box = self.cell(form, 3, 0, "Barangay / Area")
+        self.barangay = ttk.Combobox(
+            box,
+            values=BARANGAYS,
+            font=("Arial", 14),
+            state="readonly",
+            height=10
+        )
+        self.barangay.set(BARANGAY_PLACEHOLDER)
+        self.barangay.pack(fill="x", pady=(4, 0), ipady=3)
+
+        box = self.cell(form, 3, 1, "Emergency Type")
+        self.emergency = ttk.Combobox(
+            box,
+            values=EMERGENCY_TYPES,
+            state="readonly",
+            font=("Arial", 12)
+        )
+        self.emergency.set(TYPE_PLACEHOLDER)
+        self.emergency.pack(fill="x", pady=(4, 0), ipady=3)
+
+        # Row 2: Location (full width)
+        self.location = self.field(
+            self.cell(form, 4, 0, "Exact Location / Landmark", span=2),
+            self.v_location
+        )
+
+        # Row 3: Description (full width)
+        box = self.cell(form, 5, 0, "Description", span=2)
+        self.description = tk.Text(
+            box,
+            height=5,
+            font=("Arial", 12),
+            wrap="word"
+        )
+        self.description.pack(fill="x", pady=(4, 0))
+
+        # Row 4: Photo + buttons
+        bottom = tk.Frame(form, bg=WHITE)
+        bottom.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+
+        make_button(
+            bottom,
+            "IMPORT PHOTO",
+            self.import_photo,
+            bg=BLUE
+        ).pack(side="left")
+
+        self.photo_label = tk.Label(
+            bottom,
+            text="No photo selected (optional)",
+            font=("Arial", 11),
+            bg=WHITE,
+            fg=GRAY
+        )
+        self.photo_label.pack(side="left", padx=12)
+
+        self.send_btn = make_button(
+            bottom,
+            "SEND REPORT",
+            self.submit_report,
+            bg=RED
+        )
+        self.send_btn.config(padx=34, pady=12, font=("Arial", 13, "bold"))
+        self.send_btn.pack(side="right")
+
+        make_button(
+            bottom,
+            "CLEAR FORM",
+            self.clear_form,
+            bg=GRAY
+        ).pack(side="right", padx=10)
+
+    # -----------------------------------------------------
+    # Form helpers
+    # -----------------------------------------------------
+
+    def cell(self, form, row, col, label, span=1):
+        box = tk.Frame(form, bg=WHITE)
+        box.grid(
+            row=row,
+            column=col,
+            columnspan=span,
+            sticky="ew",
+            padx=(0, 8) if (col == 0 and span == 1) else
+                 (8, 0) if col == 1 else 0,
+            pady=6
+        )
+        self.make_label(box, label)
+        return box
+
+    def form_heading(self, form, row, text):
+        heading = tk.Frame(form, bg=WHITE)
+        heading.grid(row=row, column=0, columnspan=2, sticky="ew",
+                     pady=(10, 2))
+
+        tk.Label(
+            heading, text=text, font=("Arial", 14, "bold"),
+            bg=WHITE, fg=BLUE
+        ).pack(anchor="w")
+
+        tk.Frame(heading, height=2, bg=LIGHT_BLUE).pack(fill="x")
+
+    def make_label(self, parent, text, required=True):
+        row = tk.Frame(parent, bg=WHITE)
+        row.pack(anchor="w")
+
+        tk.Label(
+            row,
+            text=text,
+            font=("Arial", 12, "bold"),
+            bg=WHITE,
+            fg=TEXT
+        ).pack(side="left")
+
+        if required:
+            tk.Label(
+                row,
+                text=" *",
+                font=("Arial", 13, "bold"),
+                bg=WHITE,
+                fg=RED
+            ).pack(side="left")
+
+    def field(self, parent, validator):
+        entry = tk.Entry(
+            parent,
+            font=("Arial", 12),
+            validate="key",
+            validatecommand=validator
+        )
+        entry.pack(fill="x", pady=(4, 0), ipady=4)
+
+        return entry
+
+    # -----------------------------------------------------
+    # Input validators (called on every keystroke / paste)
+    # -----------------------------------------------------
+
+    def valid_name(self, value):
+        return (
+            len(value) <= 60 and
+            re.fullmatch(NAME_RE, value) is not None
+        )
+
+    def valid_contact(self, value):
+        return (
+            len(value) <= CONTACT_LENGTH and
+            (value == "" or value.isdigit())
+        )
+
+    def valid_location(self, value):
+        return (
+            len(value) <= 100 and
+            re.fullmatch(LOCATION_RE, value) is not None
+        )
+
+    def valid_barangay(self, value):
+        return (
+            len(value) <= 40 and
+            re.fullmatch(BARANGAY_RE, value) is not None
+        )
+
+    # -----------------------------------------------------
+    # Photo
+    # -----------------------------------------------------
+
+    def import_photo(self):
+        path = filedialog.askopenfilename(
+            title="Select Emergency Photo",
+            filetypes=[
+                ("Image Files", "*.jpg *.jpeg *.png *.gif"),
+                ("All Files", "*.*")
+            ]
+        )
+
+        if path:
+            self.photo_path = path
+            self.photo_label.config(
+                text=os.path.basename(path),
+                fg=TEXT
+            )
+
+    # -----------------------------------------------------
+    # Validation (returns a dict of clean values, or None)
+    # -----------------------------------------------------
+
+    def collect_and_validate(self):
+        name = " ".join(self.name.get().split())
+        contact = self.contact.get().strip()
+        barangay = self.barangay.get().strip()
+        location = " ".join(self.location.get().split())
+        emergency = self.emergency.get()
+        description = " ".join(self.description.get("1.0", "end").split())
+
+        def warn(title, message, focus=None):
+            messagebox.showwarning(title, message)
+            if focus is not None:
+                focus.focus_set()
+            return None
+
+        if not name:
+            return warn("Missing Information",
+                        "Please enter your name.", self.name)
+
+        if not re.search(r"[A-Za-zÑñ]{2}", name):
+            return warn("Invalid Name",
+                        "Please enter your full name (letters only).",
+                        self.name)
+
+        if not contact:
+            return warn("Missing Information",
+                        "Please enter your contact number.", self.contact)
+
+        if (
+            len(contact) != CONTACT_LENGTH or
+            not contact.isdigit() or
+            not contact.startswith("09")
+        ):
+            return warn(
+                "Invalid Contact",
+                "Contact number must be 11 digits and start with 09.\n"
+                "Example: 09123456789",
+                self.contact
+            )
+
+        if not barangay or barangay == BARANGAY_PLACEHOLDER:
+            return warn("Missing Information",
+                        "Please select your Barangay / Area.",
+                        self.barangay)
+
+        for official in BARANGAYS:
+            if official.lower() == barangay.lower():
+                barangay = official
+                break
+
+        if not location:
+            return warn("Missing Information",
+                        "Please enter the exact location or landmark.",
+                        self.location)
+
+        if emergency == TYPE_PLACEHOLDER:
+            return warn("Missing Information",
+                        "Please select an emergency type.", self.emergency)
+
+        if not description:
+            return warn("Missing Information",
+                        "Please enter a description.", self.description)
+
+        if len(description) < 10:
+            return warn(
+                "Description Too Short",
+                "Please describe the emergency in at least 10 characters.",
+                self.description
+            )
+
+        return {
+            "name": name,
+            "contact": contact,
+            "barangay": barangay,
+            "location": location,
+            "emergency": emergency,
+            "description": description,
+            "photo": self.photo_path
+        }
+
+    # -----------------------------------------------------
+    # Send Report
+    # -----------------------------------------------------
+
+    def submit_report(self):
+        if self._sending:          # ignore repeated clicks
+            return
+
+        data = self.collect_and_validate()
+
+        if data is None:
+            return
+
+        self._sending = True
+        self.send_btn.config(state="disabled", text="SENDING...")
+
+        try:
+            duplicate = find_duplicate(data)
+
+            if duplicate:
+                messagebox.showwarning(
+                    "Duplicate Report",
+                    "An identical report was already submitted and is "
+                    f"still active (Report ID: {duplicate['report_id']}).\n\n"
+                    "The duplicate was not saved."
+                )
+                return
+
+            preview = data["description"]
+            if len(preview) > 250:
+                preview = preview[:250] + "..."
+
+            confirmed = messagebox.askyesno(
+                "Review Your Report",
+                "Please review your report:\n\n"
+                f"Name: {data['name']}\n"
+                f"Contact: {data['contact']}\n"
+                f"Barangay / Area: {data['barangay']}\n"
+                f"Location: {data['location']}\n"
+                f"Emergency Type: {data['emergency']}\n"
+                f"Description: {preview}\n"
+                "Photo: " + (
+                    os.path.basename(data["photo"])
+                    if data["photo"] else "None"
+                ) + "\n\n"
+                "This report will be SAVED LOCALLY in this system. It will "
+                "not be sent to any organization automatically.\n\n"
+                "Send this report?"
+            )
+
+            if not confirmed:
+                return
+
+            report = create_report(data)
+
+            messagebox.showinfo(
+                "Report Saved",
+                f"Your report was saved locally.\n\n"
+                f"Report ID: {report['report_id']}\n"
+                f"Status: {report['status']}\n\n"
+                "This is a local (simulated) submission. It has NOT been "
+                "transmitted to any organization. For urgent emergencies, "
+                "call 911 or the Emergency Hotlines."
+            )
+
+            self.clear_form()
+
+        finally:
+            self.after(800, self._unlock_send)
+
+    def _unlock_send(self):
+        self._sending = False
+        self.send_btn.config(state="normal", text="SEND REPORT")
+
+    def clear_form(self):
+        self.name.delete(0, "end")
+        self.contact.delete(0, "end")
+        self.barangay.set(BARANGAY_PLACEHOLDER)
+        self.barangay["values"] = BARANGAYS
+        self.location.delete(0, "end")
+        self.emergency.set(TYPE_PLACEHOLDER)
+        self.description.delete("1.0", "end")
+
+        self.photo_path = ""
+        self.photo_label.config(
+            text="No photo selected (optional)",
+            fg=GRAY
+        )
+
+
+# =========================================================
+# ADMIN LOGIN  (public page - keeps the public navigation)
+# =========================================================
+
+class AdminLoginScreen(tk.Frame):
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        self.controller = controller
+
+        create_navigation(self, controller, "AdminLoginScreen")
+        create_footer(self)
+
+        wrapper = tk.Frame(
+            self,
+            bg=BACKGROUND
+        )
+        wrapper.pack(fill="both", expand=True)
+
+        card = tk.Frame(
+            wrapper,
+            bg=WHITE,
+            padx=35,
+            pady=28,
+            highlightbackground=BORDER,
+            highlightthickness=1
+        )
+        card.place(
+            relx=.5,
+            rely=.45,
+            anchor="center",
+            width=440
+        )
+
+        tk.Frame(card, height=5, bg=RED).pack(fill="x", pady=(0, 14))
+
+        tk.Label(
+            card,
+            text="ADMIN ACCESS",
+            font=("Arial", 22, "bold"),
+            bg=WHITE,
+            fg=RED
+        ).pack()
+
+        tk.Label(
+            card,
+            text="⚠ ADMIN ACCESS ONLY",
+            font=("Arial", 11, "bold"),
+            bg=WHITE,
+            fg=RED
+        ).pack(pady=(8, 3))
+
+        tk.Label(
+            card,
+            text=(
+                "This section is restricted to authorized administrators only."
+            ),
+            font=("Arial", 9),
+            bg=WHITE,
+            fg=GRAY,
+            wraplength=340,
+            justify="center"
+        ).pack(pady=(0, 18))
+
+        tk.Label(
+            card,
+            text="Username",
+            font=("Arial", 10, "bold"),
+            bg=WHITE,
+            fg=TEXT
+        ).pack(anchor="w")
+
+        self.username = tk.Entry(card, font=("Arial", 10))
+        self.username.pack(fill="x", pady=(4, 12), ipady=3)
+
+        tk.Label(
+            card,
+            text="Password",
+            font=("Arial", 10, "bold"),
+            bg=WHITE,
+            fg=TEXT
+        ).pack(anchor="w")
+
+        self.password = tk.Entry(
+            card,
+            font=("Arial", 10),
+            show="•"
+        )
+        self.password.pack(fill="x", pady=(4, 18), ipady=3)
+
+        # Pressing Enter also logs in
+        self.username.bind("<Return>", lambda e: self.login())
+        self.password.bind("<Return>", lambda e: self.login())
+
+        make_button(
+            card,
+            "LOGIN",
+            self.login,
+            bg=RED
+        ).pack(fill="x")
+
+        tk.Button(
+            card,
+            text="Back to Home",
+            command=lambda: controller.show_frame("HomeScreen"),
+            font=("Arial", 9),
+            bg=WHITE,
+            fg=BLUE,
+            relief="flat",
+            cursor="hand2"
+        ).pack(pady=(12, 0))
+
+    def login(self):
+        if (
+            self.username.get() == ADMIN_USERNAME and
+            self.password.get() == ADMIN_PASSWORD
+        ):
+            self.controller.admin_logged_in = True
+
+            self.username.delete(0, "end")
+            self.password.delete(0, "end")
+
+            self.controller.show_frame("AdminScreen")
+
+        else:
+            self.password.delete(0, "end")
+            messagebox.showerror(
+                "Access Denied",
+                "Incorrect username or password."
+            )
+
+
+# =========================================================
+# ADMIN SCREEN
+# Own layout and own navigation - the public navigation is
+# NOT shown here. Design follows the original admin dashboard
+# (stat cards, report cards, search + filters, detail window).
+# =========================================================
+
+def load_photo_preview(path, max_w=260, max_h=150):
+    """Return a PhotoImage for the preview, or None if it can't be shown.
+    Uses Pillow when installed (JPG/PNG/GIF); otherwise Tkinter's own
+    PNG/GIF support."""
+    try:
+        from PIL import Image, ImageTk
+        image = Image.open(path)
+        image.thumbnail((max_w, max_h))
+        return ImageTk.PhotoImage(image)
+    except Exception:
+        pass
+
+    try:
+        image = tk.PhotoImage(file=path)
+        factor = max(
+            1,
+            -(-image.width() // max_w),
+            -(-image.height() // max_h)
+        )
+        return image.subsample(factor, factor) if factor > 1 else image
+    except Exception:
+        return None
+
+
+class AdminScreen(ScrollPage):
+
+    SECTIONS = [
+        ("dashboard", "Dashboard", "▦"),
+        ("active", "Active Reports", "⚠"),
+        ("archive", "Response Archive", "✔"),
+        ("evacuation", "Evacuation Area Management", "⌂")
+    ]
+
+    TITLES = {
+        "dashboard": (
+            "Administrator Dashboard",
+            "Review reports, assign response teams, and track emergency "
+            "response progress."
+        ),
+        "active": (
+            "Active Reports",
+            "Reports awaiting verification, response, or completion. Open a "
+            "report to review details, assign an organization, update the "
+            "status, add notes, or run the dispatch simulation."
+        ),
+        "archive": (
+            "Response Archive",
+            "Completed emergency responses. Records are kept and can be "
+            "reopened if needed."
+        ),
+        "evacuation": (
+            "Evacuation Area Management",
+            "Add, edit, or delete the evacuation areas shown to users on the "
+            "public Evacuation page."
+        )
+    }
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=BACKGROUND)
+
+        self.controller = controller
+        self.admin_section = "dashboard"
+        self.saved_filters = {}
+        self.nav_buttons = {}
+
+        self.build_sidebar()
+
+        main = tk.Frame(self, bg=BACKGROUND)
+        main.pack(side="left", fill="both", expand=True)
+
+        self.build_header(main)
+        create_footer(main)
+        self.setup_scroll(main)
+
+    # -----------------------------------------------------
+    # Sidebar, header, session protection
+    # -----------------------------------------------------
+
+    def build_sidebar(self):
+        side = tk.Frame(self, bg=DARK_BLUE, width=250)
+        side.pack(side="left", fill="y")
+        side.pack_propagate(False)
+
+        brand = tk.Frame(side, bg=DARK_BLUE, padx=18, pady=18)
+        brand.pack(fill="x")
+
+        tk.Label(
+            brand, text="iHANDA", font=("Arial", 24, "bold"),
+            bg=DARK_BLUE, fg=WHITE
+        ).pack(anchor="w")
+
+        tk.Label(
+            brand, text="Admin Operations Center", font=("Arial", 10),
+            bg=DARK_BLUE, fg=LIGHT_BLUE
+        ).pack(anchor="w")
+
+        tk.Frame(side, height=1, bg=BLUE).pack(fill="x", padx=14, pady=(0, 10))
+
+        for key, label, icon in self.SECTIONS:
+            button = tk.Button(
+                side,
+                text=f"  {icon}   {label}",
+                command=lambda k=key: self.show_section(k),
+                font=("Arial", 11, "bold"),
+                anchor="w",
+                justify="left",
+                wraplength=190,
+                relief="flat",
+                bd=0,
+                padx=12,
+                pady=12,
+                cursor="hand2"
+            )
+            button.pack(fill="x", padx=10, pady=3)
+            self.nav_buttons[key] = button
+
+        bottom = tk.Frame(side, bg=DARK_BLUE, padx=14, pady=14)
+        bottom.pack(side="bottom", fill="x")
+
+        tk.Label(
+            bottom, text="●  Signed in as Administrator",
+            font=("Arial", 9), bg=DARK_BLUE, fg=LIGHT_BLUE
+        ).pack(anchor="w", pady=(0, 8))
+
+        make_button(bottom, "LOGOUT", self.logout, bg=RED).pack(fill="x")
+
+    def build_header(self, main):
+        head = tk.Frame(
+            main, bg=WHITE, highlightbackground=BORDER, highlightthickness=1
+        )
+        head.pack(fill="x")
+
+        self.header_title = tk.Label(
+            head, text="", font=("Arial", 18, "bold"), bg=WHITE, fg=BLUE
+        )
+        self.header_title.pack(side="left", padx=24, pady=14)
+
+        tk.Label(
+            head,
+            text="SIMULATION MODE  •  no real agency is contacted",
+            font=("Arial", 9, "bold"), bg=LIGHT_BLUE, fg=BLUE,
+            padx=10, pady=4
+        ).pack(side="right", padx=20)
+
+    def update_nav(self):
+        active = len(filter_reports("active"))
+
+        for key, label, icon in self.SECTIONS:
+            button = self.nav_buttons[key]
+            selected = key == self.admin_section
+            text = f"  {icon}   {label}"
+
+            if key == "active" and active:
+                text += f"  ({active})"
+
+            button.config(
+                text=text,
+                bg=WHITE if selected else DARK_BLUE,
+                fg=DARK_BLUE if selected else WHITE,
+                activebackground=WHITE if selected else BLUE,
+                activeforeground=DARK_BLUE if selected else WHITE
+            )
+
+    def guard(self):
+        """True if an admin session exists; otherwise go to the login page."""
+        if ADMIN_SESSION["active"]:
+            return True
+
+        clear_frame(self.content)
+        self.controller.show_frame("AdminLoginScreen")
+        return False
+
+    def run_protected(self, func, *args):
+        """Run a service function; handle an expired admin session."""
+        try:
+            return func(*args)
+        except PermissionError as error:
+            messagebox.showerror("Access Denied", str(error))
+            self.guard()
+            return None, ""
+
+    def show_section(self, section):
+        if not self.guard():
+            return
+
+        self.admin_section = section
+        self.build()
+
+    def refresh(self):
+        if not self.guard():
+            return
+
+        self.build()
+
+    def after_change(self):
+        """Redraw the current section after data changed (keeps scroll)."""
+        if ADMIN_SESSION["active"]:
+            self.build(keep_scroll=True)
+
+    def logout(self):
+        ADMIN_SESSION["active"] = False
+        self.admin_section = "dashboard"
+        self.saved_filters = {}
+
+        for child in self.winfo_toplevel().winfo_children():
+            if isinstance(child, tk.Toplevel):
+                child.destroy()
+
+        clear_frame(self.content)
+        self.controller.show_frame("HomeScreen")
+
+    # -----------------------------------------------------
+    # Page builder
+    # -----------------------------------------------------
+
+    def build(self, keep_scroll=False):
+        position = self.canvas.yview()[0] if keep_scroll else 0
+
+        clear_frame(self.content)
+        self.update_nav()
+
+        title, subtitle = self.TITLES[self.admin_section]
+        self.header_title.config(text=title)
+
+        sub = tk.Label(
+            self.content, text=subtitle, font=("Arial", 11),
+            bg=BACKGROUND, fg=GRAY, justify="left", anchor="w"
+        )
+        sub.pack(fill="x", pady=(0, 12))
+        wrap_to_width(sub, 1000)
+
+        if self.admin_section == "dashboard":
+            self.create_dashboard()
+        elif self.admin_section == "evacuation":
+            self.create_evacuation_section()
+        else:
+            self.create_reports_section(self.admin_section)
+
+        self.after_idle(self.update_scroll_region)
+
+        if keep_scroll and position:
+            self.after(60, lambda: self.canvas.yview_moveto(position))
+
+    # -----------------------------------------------------
+    # DASHBOARD
+    # -----------------------------------------------------
+
+    def create_dashboard(self):
+        counts = {s: 0 for s in REPORT_STATUSES}
+        for r in EMERGENCY_REPORTS:
+            counts[r["status"]] += 1
+
+        active = filter_reports("active")
+
+        stats = tk.Frame(self.content, bg=BACKGROUND)
+        stats.pack(fill="x", pady=(0, 10))
+
+        cards = [
+            ("Total Reports", len(EMERGENCY_REPORTS), BLUE, "▦"),
+            ("Active Reports", len(active), BLUE, "⚠"),
+            ("Pending Reports", counts["Pending"], RED, "!"),
+            ("In Progress", counts["In Progress"], ORANGE, "↻"),
+            ("Resolved Reports", counts["Resolved"], GREEN, "✔")
+        ]
+
+        for i, (title, value, color, icon) in enumerate(cards):
+            stats.grid_columnconfigure(i, weight=1, uniform="stat")
+
+            card = make_card(stats, padx=14, pady=12)
+            card.grid(
+                row=0, column=i, sticky="nsew",
+                padx=(0 if i == 0 else 5, 0 if i == len(cards) - 1 else 5)
+            )
+
+            icon_tile(card, icon, color, size=36).pack(anchor="w")
+
+            tk.Label(
+                card, text=str(value), font=("Arial", 26, "bold"),
+                bg=WHITE, fg=color
+            ).pack(anchor="w", pady=(4, 0))
+
+            tk.Label(
+                card, text=title, font=("Arial", 10, "bold"),
+                bg=WHITE, fg=GRAY
+            ).pack(anchor="w")
+
+        actions = tk.Frame(self.content, bg=BACKGROUND)
+        actions.pack(fill="x", pady=(0, 10))
+
+        make_button(
+            actions, "OPEN ACTIVE REPORTS",
+            lambda: self.show_section("active"), bg=RED
+        ).pack(side="left")
+
+        make_button(
+            actions, "RESPONSE ARCHIVE",
+            lambda: self.show_section("archive"), bg=BLUE
+        ).pack(side="left", padx=8)
+
+        # two columns: reports needing attention | recent activity
+        columns = tk.Frame(self.content, bg=BACKGROUND)
+        columns.pack(fill="x")
+        columns.grid_columnconfigure(0, weight=3, uniform="dash")
+        columns.grid_columnconfigure(1, weight=2, uniform="dash")
+
+        left = make_card(columns, padx=16, pady=14)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+
+        tk.Label(
+            left, text="Reports Needing Attention", font=FONT_SECTION,
+            bg=WHITE, fg=BLUE
+        ).pack(anchor="w", pady=(0, 8))
+
+        if not active:
+            tk.Label(
+                left, text="No active reports right now.",
+                font=("Arial", 11), bg=WHITE, fg=GRAY
+            ).pack(anchor="w")
+
+        for report in active[:5]:
+            row = tk.Frame(left, bg=LIGHT_BLUE, padx=12, pady=10)
+            row.pack(fill="x", pady=4)
+
+            make_button(
+                row, "VIEW / UPDATE",
+                lambda r=report["report_id"]: self.edit_report(r), bg=BLUE
+            ).pack(side="right", padx=(8, 0))
+
+            info = tk.Frame(row, bg=LIGHT_BLUE)
+            info.pack(side="left", fill="x", expand=True)
+
+            head = tk.Frame(info, bg=LIGHT_BLUE)
+            head.pack(fill="x")
+
+            tk.Label(
+                head,
+                text=f"{report['report_id']}  |  {report['emergency']}",
+                font=("Arial", 11, "bold"), bg=LIGHT_BLUE, fg=RED
+            ).pack(side="left")
+
+            status_badge(head, report["status"]).pack(side="left", padx=8)
+
+            detail = tk.Label(
+                info,
+                text=(
+                    f"{report['barangay']} - {report['location']}\n"
+                    f"Assigned: {report['assigned_organization']}"
+                ),
+                font=("Arial", 10), bg=LIGHT_BLUE, fg=TEXT,
+                justify="left", anchor="w"
+            )
+            detail.pack(fill="x", pady=(3, 0))
+            wrap_to_width(detail, 600)
+
+        right = make_card(columns, padx=16, pady=14)
+        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+
+        tk.Label(
+            right, text="Recent Emergency Activity", font=FONT_SECTION,
+            bg=WHITE, fg=BLUE
+        ).pack(anchor="w", pady=(0, 8))
+
+        events = []
+        for r in EMERGENCY_REPORTS:
+            for entry in r["history"]:
+                events.append((entry, r["report_id"]))
+
+        events.sort(reverse=True)
+
+        if not events:
+            tk.Label(
+                right, text="No activity yet.", font=("Arial", 11),
+                bg=WHITE, fg=GRAY
+            ).pack(anchor="w")
+
+        for entry, rid in events[:8]:
+            item = tk.Label(
+                right, text=f"{rid}\n{entry}", font=("Arial", 9),
+                bg=WHITE, fg=TEXT, justify="left", anchor="w"
+            )
+            item.pack(fill="x", pady=4)
+            wrap_to_width(item, 400)
+
+        note = tk.Label(
+            self.content,
+            text=(
+                "Emergency response and dispatch in this system are a "
+                "simulation. No real emergency organization is contacted."
+            ),
+            font=("Arial", 10, "italic"), bg=BACKGROUND, fg=GRAY,
+            justify="left", anchor="w"
+        )
+        note.pack(fill="x", pady=(10, 0))
+        wrap_to_width(note, 1000)
+
+    # -----------------------------------------------------
+    # ACTIVE REPORTS / RESPONSE ARCHIVE
+    # -----------------------------------------------------
+
+    def create_reports_section(self, mode):
+        saved = self.saved_filters.setdefault(mode, {})
+
+        box = tk.Frame(
+            self.content, bg=WHITE, padx=16, pady=16,
+            highlightbackground=BORDER, highlightthickness=1
+        )
+        box.pack(fill="both", expand=True, pady=6)
+
+        search_var = tk.StringVar(value=saved.get("search", ""))
+        status_var = tk.StringVar(value=saved.get("status", "All Statuses"))
+        type_var = tk.StringVar(value=saved.get("type", "All Types"))
+        org_var = tk.StringVar(value=saved.get("org", "All Organizations"))
+        date_var = tk.StringVar(value=saved.get("date", ""))
+
+        # ----- search + filters -----
+        bar = tk.Frame(box, bg=WHITE)
+        bar.pack(fill="x", pady=(0, 6))
+
+        def cell(col, text, weight):
+            bar.grid_columnconfigure(col, weight=weight)
+            cell_box = tk.Frame(bar, bg=WHITE)
+            cell_box.grid(row=0, column=col, sticky="ew", padx=4)
+            tk.Label(
+                cell_box, text=text, font=("Arial", 10, "bold"),
+                bg=WHITE, fg=TEXT
+            ).pack(anchor="w")
+            return cell_box
+
+        tk.Entry(
+            cell(0, "Search reports", 3), textvariable=search_var,
+            font=("Arial", 11)
+        ).pack(fill="x", ipady=3)
+
+        col = 1
+
+        if mode != "archive":
+            statuses = ACTIVE_STATUSES
+            ttk.Combobox(
+                cell(col, "Status", 1), textvariable=status_var,
+                values=["All Statuses"] + statuses, state="readonly",
+                width=13
+            ).pack(fill="x", ipady=2)
+            col += 1
+
+        ttk.Combobox(
+            cell(col, "Type", 1), textvariable=type_var,
+            values=["All Types"] + EMERGENCY_TYPES, state="readonly",
+            width=11
+        ).pack(fill="x", ipady=2)
+        col += 1
+
+        ttk.Combobox(
+            cell(col, "Organization", 2), textvariable=org_var,
+            values=["All Organizations"] + RESPONSE_ORGANIZATIONS,
+            state="readonly", width=22
+        ).pack(fill="x", ipady=2)
+        col += 1
+
+        tk.Entry(
+            cell(col, "Date (YYYY-MM-DD)", 1), textvariable=date_var,
+            font=("Arial", 11), width=12
+        ).pack(fill="x", ipady=3)
+        col += 1
+
+        def clear_filters():
+            search_var.set("")
+            status_var.set("All Statuses")
+            type_var.set("All Types")
+            org_var.set("All Organizations")
+            date_var.set("")
+
+        tk.Button(
+            bar, text="CLEAR", command=clear_filters,
+            font=("Arial", 10, "bold"), bg=GRAY, fg=WHITE,
+            activebackground="#444444", activeforeground=WHITE,
+            relief="flat", bd=0, padx=12, pady=5, cursor="hand2"
+        ).grid(row=0, column=col, sticky="s", padx=(8, 0))
+
+        date_msg = tk.Label(
+            box, text="", font=("Arial", 9), bg=WHITE, fg=RED, anchor="w"
+        )
+        date_msg.pack(fill="x")
+
+        count_label = tk.Label(
+            box, text="", font=("Arial", 10, "bold"), bg=WHITE, fg=GRAY,
+            anchor="w"
+        )
+        count_label.pack(fill="x", pady=(0, 4))
+
+        list_frame = tk.Frame(box, bg=WHITE)
+        list_frame.pack(fill="both", expand=True)
+
+        def render(*_):
+            clear_frame(list_frame)
+
+            date = date_var.get().strip()
+            valid_date = ""
+            date_msg.config(text="")
+
+            if date:
+                try:
+                    datetime.strptime(date, "%Y-%m-%d")
+                    valid_date = date
+                except ValueError:
+                    date_msg.config(
+                        text="Date filter ignored - use YYYY-MM-DD."
+                    )
+
+            status = status_var.get()
+            rtype = type_var.get()
+            org = org_var.get()
+
+            saved.update(
+                search=search_var.get(), status=status, type=rtype,
+                org=org, date=date_var.get()
+            )
+
+            reports = filter_reports(
+                mode,
+                text=search_var.get(),
+                rtype="" if rtype.startswith("All") else rtype,
+                status="" if status.startswith("All") else status,
+                org="" if org.startswith("All") else org,
+                date=valid_date
+            )
+
+            count_label.config(
+                text=f"Showing {len(reports)} of "
+                     f"{len(filter_reports(mode))} report(s)"
+            )
+
+            if not reports:
+                tk.Label(
+                    list_frame,
+                    text=(
+                        "No matching reports." if EMERGENCY_REPORTS else
+                        "No emergency reports submitted yet."
+                    ),
+                    font=("Arial", 11), bg=WHITE, fg=GRAY, pady=20
+                ).pack(fill="x")
+                return
+
+            for report in reports:
+                self.make_report_card(list_frame, report)
+
+            self.after_idle(self.update_scroll_region)
+
+        for var in (search_var, status_var, type_var, org_var, date_var):
+            var.trace_add("write", render)
+
+        render()
+
+    def make_report_card(self, parent, report):
+        rid = report["report_id"]
+        resolved = report["status"] == "Resolved"
+
+        card = tk.Frame(parent, bg=LIGHT_BLUE, padx=13, pady=12)
+        card.pack(fill="x", pady=5)
+
+        head = tk.Frame(card, bg=LIGHT_BLUE)
+        head.pack(fill="x")
+
+        tk.Label(
+            head, text=f"{rid}  |  {report['emergency']}",
+            font=("Arial", 12, "bold"), bg=LIGHT_BLUE, fg=RED
+        ).pack(side="left")
+
+        status_badge(head, report["status"]).pack(side="left", padx=10)
+
+        def line(text, font=("Arial", 10), fg=TEXT, pady=(2, 0)):
+            label = tk.Label(
+                card, text=text, font=font, bg=LIGHT_BLUE, fg=fg,
+                justify="left", anchor="w"
+            )
+            label.pack(fill="x", pady=pady)
+            wrap_to_width(label, 1000)
+
+        line(
+            f"{report['barangay']} - {report['location']}  |  "
+            f"Submitted: {report['date_time']}  |  "
+            f"Assigned: {report['assigned_organization']}",
+            pady=(4, 2)
+        )
+
+        description = report["description"]
+        if len(description) > 300:
+            description = description[:300] + "..."
+        line(description)
+
+        if resolved and report["completed_at"]:
+            line("Completed: " + report["completed_at"],
+                 font=("Arial", 10, "bold"), fg=GREEN)
+
+        if report["response_notes"]:
+            notes = " ".join(report["response_notes"].split())
+            if len(notes) > 200:
+                notes = notes[:200] + "..."
+            line("Response notes: " + notes,
+                 font=("Arial", 10, "italic"), fg=GRAY)
+
+        if report["sent_to_officials"]:
+            line(
+                f"SIMULATED DISPATCH: Sent to {report['sent_to_officials']}"
+                f" | {report['sent_to_officials_at']}",
+                font=("Arial", 10, "bold"), fg=GREEN, pady=(5, 0)
+            )
+
+        actions = tk.Frame(card, bg=LIGHT_BLUE)
+        actions.pack(fill="x", pady=(8, 0))
+
+        make_button(
+            actions, "VIEW / UPDATE",
+            lambda r=rid: self.edit_report(r), bg=BLUE
+        ).pack(side="left")
+
+        if resolved:
+            make_button(
+                actions, "REOPEN", lambda r=rid: self.reopen(r), bg=RED
+            ).pack(side="left", padx=6)
+            return
+
+        if report["sent_to_officials"]:
+            sent = make_button(actions, "SENT ✓", lambda: None, bg=GREEN)
+            sent.config(state="disabled", disabledforeground=WHITE)
+            sent.pack(side="left", padx=6)
+        else:
+            make_button(
+                actions, "SEND EMERGENCY RESPONSE",
+                lambda r=rid: self.send_report_to_officials(r), bg=GREEN
+            ).pack(side="left", padx=6)
+
+        make_button(
+            actions, "MARK RESOLVED",
+            lambda r=rid: self.mark_resolved(r), bg=RED
+        ).pack(side="left", padx=6)
+
+    # -----------------------------------------------------
+    # Quick actions on a report card
+    # -----------------------------------------------------
+
+    def mark_resolved(self, rid):
+        if not self.guard():
+            return
+
+        report = find_report(rid)
+
+        if report is None:
+            messagebox.showerror("Not Found", "Report not found.")
+            return
+
+        if not messagebox.askyesno(
+            "Resolve Report",
+            f"Mark report {rid} as Resolved?\n\n"
+            "It will move to the Response Archive."
+        ):
+            return
+
+        ok, message = self.run_protected(
+            update_report, rid, "Resolved",
+            report["assigned_organization"], report["response_notes"]
+        )
+
+        if ok is None:
+            return
+
+        if not ok:
+            if message.startswith("Please assign"):
+                message += "\n\nUse VIEW / UPDATE to choose an organization."
+            messagebox.showwarning("Cannot Resolve", message)
+            return
+
+        messagebox.showinfo("Report Resolved", message)
+        self.after_change()
+
+    def reopen(self, rid):
+        if not self.guard():
+            return
+
+        if not messagebox.askyesno(
+            "Reopen Report",
+            f"Return report {rid} to Active Reports?\n\n"
+            "All previous information and history will be kept."
+        ):
+            return
+
+        ok, message = self.run_protected(reopen_report, rid)
+
+        if ok is None:
+            return
+
+        (messagebox.showinfo if ok else messagebox.showwarning)(
+            "Reopen Report", message
+        )
+        self.after_change()
+
+    # -----------------------------------------------------
+    # SIMULATED EMERGENCY RESPONSE (dispatch)
+    # -----------------------------------------------------
+
+    def send_report_to_officials(self, rid):
+        """Let the admin choose recipients for a SIMULATED dispatch."""
+        if not self.guard():
+            return
+
+        report = find_report(rid)
+
+        if report is None:
+            messagebox.showerror("Not Found", "Report not found.")
+            return
+
+        if report["sent_to_officials"]:
+            messagebox.showinfo(
+                "Already Sent",
+                "This report has already been marked as sent in the "
+                "simulation."
+            )
+            return
+
+        suggested = DISPATCH_SUGGESTIONS.get(
+            report["emergency"].strip().lower(),
+            DISPATCH_SUGGESTIONS["other"]
+        )
+
+        win = tk.Toplevel(self)
+        win.title("Choose Emergency Response Recipients")
+        win.geometry("520x520")
+        win.minsize(460, 440)
+        win.configure(bg=BACKGROUND)
+        win.transient(self.winfo_toplevel())
+        win.grab_set()
+
+        card = tk.Frame(
+            win, bg=WHITE, padx=20, pady=18,
+            highlightbackground=BORDER, highlightthickness=1
+        )
+        card.pack(fill="both", expand=True, padx=16, pady=16)
+
+        tk.Label(
+            card, text="SEND EMERGENCY RESPONSE (SIMULATION)",
+            font=("Arial", 15, "bold"), bg=WHITE, fg=RED
+        ).pack(anchor="w")
+
+        tk.Label(
+            card,
+            text=f"Report: {rid}  |  Scenario: {report['emergency']}",
+            font=("Arial", 10, "bold"), bg=WHITE, fg=TEXT,
+            wraplength=440, justify="left"
+        ).pack(anchor="w", pady=(6, 3))
+
+        tk.Label(
+            card,
+            text="Select the officials/agencies to notify in this simulation:",
+            font=("Arial", 10), bg=WHITE, fg=GRAY,
+            wraplength=440, justify="left"
+        ).pack(anchor="w", pady=(0, 10))
+
+        recipient_vars = {}
+
+        for recipient in DISPATCH_RECIPIENTS:
+            var = tk.BooleanVar(value=recipient in suggested)
+            recipient_vars[recipient] = var
+
+            tk.Checkbutton(
+                card, text=recipient, variable=var,
+                font=("Arial", 10), bg=WHITE, fg=TEXT,
+                activebackground=WHITE, selectcolor=LIGHT_BLUE,
+                anchor="w", justify="left", wraplength=430
+            ).pack(fill="x", anchor="w", pady=2)
+
+        tk.Label(
+            card,
+            text=(
+                "Suggested recipients are pre-selected for the scenario. "
+                "You can change the selection. This is a demonstration "
+                "only - no real officials or agencies are contacted."
+            ),
+            font=("Arial", 9), bg=WHITE, fg=GRAY,
+            wraplength=440, justify="left"
+        ).pack(anchor="w", pady=(8, 10))
+
+        buttons = tk.Frame(card, bg=WHITE)
+        buttons.pack(fill="x", side="bottom")
+
+        def confirm_send():
+            selected = [
+                name for name, var in recipient_vars.items() if var.get()
+            ]
+
+            ok, message = self.run_protected(dispatch_report, rid, selected)
+
+            if ok is None:
+                win.destroy()
+                return
+
+            if not ok:
+                messagebox.showwarning(
+                    "Cannot Send", message, parent=win
+                )
+                return
+
+            win.destroy()
+            self.after_change()
+
+            messagebox.showinfo(
+                "Simulated Send Complete",
+                f"Report {rid} is now marked as SENT.\n\n"
+                f"Scenario: {report['emergency']}\n"
+                f"Recipient(s): {message}\n\n"
+                "This is a demonstration only. No real officials were "
+                "contacted."
+            )
+
+        make_button(buttons, "CANCEL", win.destroy, bg=GRAY).pack(
+            side="right", padx=(6, 0)
+        )
+        make_button(
+            buttons, "CONFIRM SIMULATED SEND", confirm_send, bg=GREEN
+        ).pack(side="right")
+
+    # -----------------------------------------------------
+    # REPORT DETAILS + MANAGEMENT WINDOW
+    # -----------------------------------------------------
+
+    def edit_report(self, rid):
+        if not self.guard():
+            return
+
+        report = find_report(rid)
+
+        if report is None:
+            messagebox.showerror("Not Found", "Report not found.")
+            return
+
+        win = tk.Toplevel(self)
+        win.title("Report Details and Management")
+        height = min(820, win.winfo_screenheight() - 90)
+        win.geometry(f"720x{height}")
+        win.minsize(620, 520)
+        win.configure(bg=BACKGROUND)
+        win.transient(self.winfo_toplevel())
+        win.grab_set()
+
+        # Buttons are packed first so they always stay visible
+        buttons = tk.Frame(win, bg=BACKGROUND)
+        buttons.pack(side="bottom", fill="x", padx=14, pady=(0, 14))
+
+        card = tk.Frame(win, bg=WHITE, padx=20, pady=14)
+        card.pack(fill="both", expand=True, padx=14, pady=(14, 8))
+
+        title_row = tk.Frame(card, bg=WHITE)
+        title_row.pack(fill="x")
+
+        tk.Label(
+            title_row, text=f"Report {rid}", font=("Arial", 17, "bold"),
+            bg=WHITE, fg=BLUE
+        ).pack(side="left")
+
+        status_badge(title_row, report["status"]).pack(side="left", padx=12)
+
+        details = (
+            f"Emergency: {report['emergency']}\n"
+            f"Reporter: {report['name']} | Contact: {report['contact']}\n"
+            f"Location: {report['barangay']}, {report['location']}\n"
+            f"Submitted: {report['date_time']}\n"
+            f"Completed: {report['completed_at'] or '-'}\n\n"
+            f"Description: {report['description']}\n"
+            "Photo: " + (
+                os.path.basename(report["photo"])
+                if report["photo"] else "None"
+            )
+        )
+        detail_label = tk.Label(
+            card, text=details, font=("Arial", 10), bg=WHITE, fg=TEXT,
+            justify="left", anchor="w"
+        )
+        detail_label.pack(fill="x", pady=8)
+        wrap_to_width(detail_label, 900)
+
+        if report["sent_to_officials"]:
+            tk.Label(
+                card,
+                text=(
+                    f"SIMULATED DISPATCH: Sent to {report['sent_to_officials']}"
+                    f" | {report['sent_to_officials_at']}"
+                ),
+                font=("Arial", 10, "bold"), bg=WHITE, fg=GREEN,
+                justify="left", wraplength=620
+            ).pack(anchor="w", pady=(0, 6))
+
+        # ----- attached photo preview -----
+        photo_path = report["photo"]
+
+        if photo_path and os.path.isfile(photo_path):
+            photo_box = tk.Frame(
+                card, bg=LIGHT_BLUE, padx=10, pady=8,
+                highlightbackground=BORDER, highlightthickness=1
+            )
+            photo_box.pack(fill="x", pady=(0, 8))
+
+            tk.Label(
+                photo_box, text="ATTACHED EMERGENCY PHOTO",
+                font=("Arial", 10, "bold"), bg=LIGHT_BLUE, fg=BLUE
+            ).pack(anchor="w")
+
+            preview = load_photo_preview(photo_path)
+
+            if preview is not None:
+                preview_label = tk.Label(photo_box, image=preview, bg=LIGHT_BLUE)
+                preview_label.image = preview      # keep a reference
+                preview_label.pack(anchor="w", pady=(6, 4))
+            else:
+                tk.Label(
+                    photo_box,
+                    text=(
+                        os.path.basename(photo_path) +
+                        "\nPreview not available. Use OPEN PHOTO to view "
+                        "the image."
+                    ),
+                    font=("Arial", 10), bg=LIGHT_BLUE, fg=TEXT,
+                    justify="left"
+                ).pack(anchor="w", pady=(6, 4))
+
+            def open_attached_photo():
+                try:
+                    if hasattr(os, "startfile"):
+                        os.startfile(photo_path)
+                    else:
+                        import webbrowser
+                        from pathlib import Path
+                        webbrowser.open(Path(photo_path).resolve().as_uri())
+                except Exception as exc:
+                    messagebox.showerror(
+                        "Cannot Open Photo", str(exc), parent=win
+                    )
+
+            make_button(
+                photo_box, "OPEN PHOTO", open_attached_photo, bg=BLUE
+            ).pack(anchor="w", pady=(4, 0))
+        else:
+            tk.Label(
+                card,
+                text=(
+                    "Attached photo: None" if not photo_path else
+                    "Attached photo: file not found (" +
+                    os.path.basename(photo_path) + ")"
+                ),
+                font=("Arial", 10), bg=WHITE, fg=GRAY
+            ).pack(anchor="w", pady=(0, 8))
+
+        # ----- status / organization / notes -----
+        tk.Label(
+            card, text="Status", font=("Arial", 10, "bold"),
+            bg=WHITE, fg=TEXT
+        ).pack(anchor="w")
+
+        status_var = tk.StringVar(value=report["status"])
+        ttk.Combobox(
+            card, textvariable=status_var, values=REPORT_STATUSES,
+            state="readonly", font=("Arial", 11)
+        ).pack(fill="x", pady=(3, 8))
+
+        tk.Label(
+            card, text="Assign to Organization / Response Team",
+            font=("Arial", 10, "bold"), bg=WHITE, fg=TEXT
+        ).pack(anchor="w")
+
+        org_var = tk.StringVar(value=report["assigned_organization"])
+        org_box = ttk.Combobox(
+            card, textvariable=org_var, values=RESPONSE_ORGANIZATIONS,
+            state="readonly", font=("Arial", 10)
+        )
+        org_box.pack(fill="x", pady=(3, 2))
+
+        contact_label = tk.Label(
+            card, text="", font=("Arial", 9), bg=WHITE, fg=GRAY,
+            anchor="w", justify="left"
+        )
+        contact_label.pack(fill="x")
+        wrap_to_width(contact_label, 700)
+
+        def update_contact(*_):
+            contact_label.config(
+                text="Contact: " + org_contact(org_var.get()) +
+                     "   (assigning does not mean the report was delivered)"
+            )
+
+        org_box.bind("<<ComboboxSelected>>", update_contact)
+        update_contact()
+
+        tk.Label(
+            card, text="Response Notes", font=("Arial", 10, "bold"),
+            bg=WHITE, fg=TEXT
+        ).pack(anchor="w", pady=(6, 0))
+
+        notes = tk.Text(card, height=4, font=("Arial", 10), wrap="word")
+        notes.pack(fill="both", expand=True, pady=(3, 8))
+        notes.insert("1.0", report["response_notes"])
+
+        tk.Label(
+            card, text="Response History", font=("Arial", 10, "bold"),
+            bg=WHITE, fg=TEXT
+        ).pack(anchor="w")
+
+        history = tk.Text(
+            card, height=4, font=("Arial", 9), wrap="word",
+            bg=BACKGROUND, relief="flat"
+        )
+        history.pack(fill="x", pady=(3, 0))
+        history.insert("1.0", "\n".join(report["history"]))
+        history.config(state="disabled")
+        history.see("end")
+
+        def save_changes():
+            ok, message = self.run_protected(
+                update_report, rid, status_var.get(), org_var.get(),
+                notes.get("1.0", "end")
+            )
+
+            if ok is None:
+                win.destroy()
+                return
+
+            if not ok:
+                messagebox.showwarning("Cannot Save", message, parent=win)
+                return
+
+            win.destroy()
+            self.after_change()
+            messagebox.showinfo("Report Updated", message)
+
+        make_button(buttons, "SAVE CHANGES", save_changes, bg=RED).pack(
+            side="left"
+        )
+        make_button(buttons, "CLOSE", win.destroy, bg=GRAY).pack(side="right")
+
+    # -----------------------------------------------------
+    # EVACUATION AREA MANAGEMENT
+    # The same EVACUATION_AREAS list feeds the public page.
+    # -----------------------------------------------------
+
+    def create_evacuation_section(self):
+        box = tk.Frame(
+            self.content, bg=WHITE, padx=22, pady=20,
+            highlightbackground=BORDER, highlightthickness=1
+        )
+        box.pack(fill="x", pady=10)
+
+        tk.Label(
+            box, text="Evacuation Area Management",
+            font=("Arial", 17, "bold"), bg=WHITE, fg=BLUE
+        ).pack(anchor="w")
+
+        tk.Label(
+            box,
+            text=(
+                "Administrators can add, edit, or delete evacuation "
+                "locations displayed to users."
+            ),
+            font=("Arial", 10), bg=WHITE, fg=GRAY
+        ).pack(anchor="w", pady=(3, 15))
+
+        make_button(
+            box, "ADD EVACUATION AREA", self.add_evacuation, bg=RED
+        ).pack(anchor="w", pady=(0, 15))
+
+        if not EVACUATION_AREAS:
+            tk.Label(
+                box, text="No evacuation areas listed.",
+                font=("Arial", 11), bg=WHITE, fg=GRAY
+            ).pack(anchor="w")
+
+        for index, item in enumerate(EVACUATION_AREAS):
+            row = tk.Frame(box, bg=LIGHT_BLUE, padx=18, pady=15)
+            row.pack(fill="x", pady=5)
+
+            actions = tk.Frame(row, bg=LIGHT_BLUE)
+            actions.pack(side="right")
+
+            detail = tk.Frame(row, bg=LIGHT_BLUE)
+            detail.pack(side="left", fill="x", expand=True)
+
+            tk.Label(
+                detail, text=item["name"], font=("Arial", 13, "bold"),
+                bg=LIGHT_BLUE, fg=RED, anchor="w"
+            ).pack(fill="x")
+
+            info = tk.Label(
+                detail,
+                text=(
+                    f"Barangay: {item['barangay']} | "
+                    f"Location: {item['location']} | "
+                    f"Capacity: {format_capacity(item['capacity'])}\n"
+                    f"Notes: {item.get('notes', '')}"
+                ),
+                font=("Arial", 11), bg=LIGHT_BLUE, fg=TEXT,
+                justify="left", anchor="w"
+            )
+            info.pack(fill="x", pady=(3, 0))
+            wrap_to_width(info, 800)
+
+            make_button(
+                actions, "EDIT",
+                lambda i=index: self.edit_evacuation(i), bg=BLUE
+            ).pack(side="left", padx=2)
+
+            make_button(
+                actions, "DELETE",
+                lambda i=index: self.delete_evacuation(i), bg=RED
+            ).pack(side="left", padx=2)
+
+        note = tk.Label(
+            self.content,
+            text=(
+                "Data note: reports and evacuation changes are kept in "
+                "memory only and are lost when the program closes."
+            ),
+            font=("Arial", 10, "italic"), bg=BACKGROUND, fg=GRAY,
+            justify="left", anchor="w"
+        )
+        note.pack(fill="x", pady=(4, 0))
+        wrap_to_width(note, 1000)
+
+    def add_evacuation(self):
+        if self.guard():
+            self.evacuation_form()
+
+    def edit_evacuation(self, index):
+        if self.guard():
+            self.evacuation_form(
+                index=index, data=EVACUATION_AREAS[index]
+            )
+
+    def evacuation_form(self, index=None, data=None):
+        win = tk.Toplevel(self)
+        win.title("Edit Evacuation Area" if data else "Add Evacuation Area")
+        win.geometry("500x540")
+        win.resizable(False, False)
+        win.configure(bg=BACKGROUND)
+        win.transient(self.winfo_toplevel())
+        win.grab_set()
+
+        card = tk.Frame(win, bg=WHITE, padx=25, pady=25)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+
+        tk.Label(
+            card,
+            text="Edit Evacuation Area" if data else "Add Evacuation Area",
+            font=("Arial", 18, "bold"), bg=WHITE, fg=BLUE
+        ).pack(anchor="w", pady=(0, 15))
+
+        entries = {}
+
+        fields = [
+            ("Location Name", "name"),
+            ("Barangay", "barangay"),
+            ("Address / Landmark", "location"),
+            ("Capacity (number of persons)", "capacity"),
+            ("Notes", "notes")
+        ]
+
+        for label, key in fields:
+            tk.Label(
+                card, text=label, font=("Arial", 9, "bold"),
+                bg=WHITE, fg=TEXT
+            ).pack(anchor="w")
+
+            if key == "capacity":
+                # numbers only (maximum 6 digits)
+                entry = tk.Entry(
+                    card, font=("Arial", 10), validate="key",
+                    validatecommand=(
+                        win.register(
+                            lambda v: v == "" or (v.isdigit() and len(v) <= 6)
+                        ),
+                        "%P"
+                    )
+                )
+            else:
+                entry = tk.Entry(card, font=("Arial", 10))
+
+            entry.pack(fill="x", pady=(3, 10), ipady=2)
+
+            if data:
+                value = data.get(key, "")
+                if key != "capacity" or str(value).isdigit():
+                    entry.insert(0, value)
+
+            entries[key] = entry
+
+        def save():
+            if not ADMIN_SESSION["active"]:
+                win.destroy()
+                self.guard()
+                return
+
+            values = {key: entries[key].get().strip() for _, key in fields}
+
+            if not values["name"] or not values["barangay"]:
+                messagebox.showwarning(
+                    "Missing Information",
+                    "Location Name and Barangay are required.",
+                    parent=win
+                )
+                return
+
+            if not values["capacity"].isdigit() or int(values["capacity"]) < 1:
+                messagebox.showwarning(
+                    "Invalid Capacity",
+                    "Capacity must be a number greater than 0 "
+                    "(for example: 300).",
+                    parent=win
+                )
+                return
+
+            values["capacity"] = str(int(values["capacity"]))
+
+            if index is None:
+                EVACUATION_AREAS.append(values)
+            else:
+                EVACUATION_AREAS[index] = values
+
+            win.destroy()
+            self.after_change()
+            self.controller.frames["EvacuationScreen"].refresh()
+
+        make_button(card, "SAVE", save, bg=RED).pack(anchor="e", pady=(5, 0))
+
+    def delete_evacuation(self, index):
+        if not self.guard():
+            return
+
+        if messagebox.askyesno(
+            "Delete Evacuation Area",
+            "Are you sure you want to delete this evacuation area?"
+        ):
+            del EVACUATION_AREAS[index]
+            self.after_change()
+            self.controller.frames["EvacuationScreen"].refresh()
+
+
+
+# =========================================================
+# RUN
+# =========================================================
+
+if __name__ == "__main__":
+
+    app = App()
+
+    app.attributes("-fullscreen", True)
+
+    # Press ESC to leave fullscreen, F11 to go back
+    app.bind(
+        "<Escape>",
+        lambda e: app.attributes("-fullscreen", False)
+    )
+    app.bind(
+        "<F11>",
+        lambda e: app.attributes(
+            "-fullscreen",
+            not app.attributes("-fullscreen")
+        )
+    )
+
+    app.mainloop()
